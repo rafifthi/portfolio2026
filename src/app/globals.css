@@ -1,26 +1,220 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-base: #050508;
+  --bg-app: #0a0a0f;
+  --bg-window: rgba(20, 20, 25, 0.88);
+  --bg-titlebar: rgba(30, 30, 35, 0.92);
+  --bg-dock: rgba(255, 255, 255, 0.08);
+  --bg-input: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --bg-sidebar: rgba(25, 25, 30, 0.9);
+  --bg-card: rgba(255, 255, 255, 0.04);
+
+  --text-primary: rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-tertiary: rgba(255, 255, 255, 0.35);
+  --text-inverse: rgba(0, 0, 0, 0.85);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+
+  --accent: #3b82f6;
+  --accent-red: #ff5f57;
+  --accent-yellow: #febc2e;
+  --accent-green: #28c840;
+
+  --menubar-bg: rgba(0, 0, 0, 0.35);
+  --menubar-text: rgba(255, 255, 255, 0.85);
+
+  --window-shadow: 0 25px 70px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --dock-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] {
+  --bg-base: #e8e8ed;
+  --bg-app: #ffffff;
+  --bg-window: rgba(255, 255, 255, 0.82);
+  --bg-titlebar: rgba(245, 245, 247, 0.92);
+  --bg-dock: rgba(255, 255, 255, 0.55);
+  --bg-input: rgba(0, 0, 0, 0.04);
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-sidebar: rgba(245, 245, 247, 0.95);
+  --bg-card: rgba(0, 0, 0, 0.03);
+
+  --text-primary: rgba(0, 0, 0, 0.85);
+  --text-secondary: rgba(0, 0, 0, 0.5);
+  --text-tertiary: rgba(0, 0, 0, 0.3);
+  --text-inverse: rgba(255, 255, 255, 0.9);
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.15);
+
+  --menubar-bg: rgba(255, 255, 255, 0.55);
+  --menubar-text: rgba(0, 0, 0, 0.8);
+
+  --window-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --dock-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+  transition: background 0.3s ease;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Desktop background - Mecha Pixel Game Theme */
+.desktop-bg {
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 85%, rgba(0, 200, 255, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 70% 80%, rgba(255, 0, 128, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 30% 75%, rgba(0, 255, 128, 0.06) 0%, transparent 50%),
+    linear-gradient(rgba(0, 255, 200, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 200, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at 20% 30%, rgba(20, 30, 60, 0.8) 0%, transparent 50%),
+    radial-gradient(circle at 80% 10%, rgba(60, 20, 40, 0.5) 0%, transparent 40%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px, 100% 100%, 100% 100%;
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+[data-theme="light"] .desktop-bg {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 85%, rgba(0, 150, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 70% 80%, rgba(255, 100, 200, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 30% 75%, rgba(0, 200, 100, 0.03) 0%, transparent 50%),
+    linear-gradient(rgba(0, 150, 200, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 150, 200, 0.03) 1px, transparent 1px),
+    radial-gradient(circle at 20% 30%, rgba(200, 210, 240, 0.5) 0%, transparent 50%),
+    radial-gradient(circle at 80% 10%, rgba(240, 200, 210, 0.3) 0%, transparent 40%);
+}
+
+/* Scanlines overlay */
+.desktop-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+[data-theme="light"] .desktop-bg::after {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.02) 2px,
+    rgba(0, 0, 0, 0.02) 4px
+  );
+}
+
+/* Floating pixel particles */
+.desktop-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(0, 255, 200, 0.3) 0%, transparent 2px),
+    radial-gradient(circle at 85% 15%, rgba(255, 0, 128, 0.3) 0%, transparent 2px),
+    radial-gradient(circle at 45% 60%, rgba(0, 200, 255, 0.2) 0%, transparent 2px),
+    radial-gradient(circle at 75% 45%, rgba(255, 200, 0, 0.2) 0%, transparent 2px),
+    radial-gradient(circle at 25% 80%, rgba(0, 255, 128, 0.2) 0%, transparent 2px),
+    radial-gradient(circle at 90% 70%, rgba(200, 0, 255, 0.2) 0%, transparent 2px);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Bottom Gaussian blur near dock */
+.bottom-blur {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 160px;
+  pointer-events: none;
+  z-index: 40;
+  background: linear-gradient(
+    to top,
+    var(--bg-base) 0%,
+    color-mix(in srgb, var(--bg-base) 40%, transparent) 40%,
+    transparent 100%
+  );
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, black 0%, transparent 100%);
+}
+
+/* Dock glass effect */
+.dock-glass {
+  background: var(--bg-dock);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid var(--border-hover);
+  box-shadow: var(--dock-shadow);
+}
+
+/* Window glass effect */
+.window-glass {
+  background: var(--bg-window);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: none;
+  box-shadow: var(--window-shadow);
+  color: var(--text-primary);
+}
+
+/* Terminal specific */
+.terminal-bg {
+  background: #0c0c0c;
+}
+
+/* Animation */
+@keyframes bounce-dock {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.15); }
+}
+
+.dock-bounce {
+  animation: bounce-dock 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
