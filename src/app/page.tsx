@@ -15,34 +15,35 @@ import Terminal from "@/components/apps/Terminal";
 import LumonaERP from "@/components/apps/LumonaERP";
 import DigitalInvitation from "@/components/apps/DigitalInvitation";
 import AppLauncher from "@/components/apps/AppLauncher";
-import NotionViewer from "@/components/apps/NotionViewer";
 import Readme from "@/components/apps/Readme";
 import Wife from "@/components/apps/Wife";
 import CV from "@/components/apps/CV";
+import CaseViewer from "@/components/apps/CaseViewer";
+import MenuDropdown from "@/components/MenuDropdown";
+import Onboarding from "@/components/Onboarding";
+import Settings from "@/components/apps/Settings";
 import { Icon } from "@/components/Icon";
-import { desktopItems, studyCases } from "@/lib/data";
+import { desktopItems } from "@/lib/data";
 import { WindowState } from "@/lib/types";
+
+import LumonaMDX, { metadata as lumonaMetadata } from "@content/cases/lumona.mdx";
+import TDNMDX, { metadata as tdnMetadata } from "@content/cases/tdn.mdx";
+import InvitationMDX, { metadata as invitationMetadata } from "@content/cases/invitation.mdx";
 
 const APP_CONFIGS: Record<string, { title: string; icon: string; color: string; width: number; height: number; component: React.FC<any> }> = {
   // Desktop items
   readme: { title: "README.txt", icon: "FileText", color: "#6b7280", width: 520, height: 640, component: Readme },
   wife: { title: "wife", icon: "Heart", color: "#ec4899", width: 520, height: 640, component: Wife },
   cv: { title: "CV.pdf", icon: "FileText", color: "#ef4444", width: 640, height: 720, component: CV },
-  "lumona-case": { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 640, component: () => {
-    const study = studyCases.find((s) => s.id === "lumona-case");
-    if (!study) return null;
-    return <NotionViewer studyCase={study} />;
-  }},
-  "siti-case": { title: "Siti Khadija", icon: "Heart", color: "#10b981", width: 720, height: 640, component: () => {
-    const study = studyCases.find((s) => s.id === "siti-case");
-    if (!study) return null;
-    return <NotionViewer studyCase={study} />;
-  }},
-  "invitation-case": { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 720, height: 640, component: () => {
-    const study = studyCases.find((s) => s.id === "invitation-case");
-    if (!study) return null;
-    return <NotionViewer studyCase={study} />;
-  }},
+  "lumona-case": { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 640, component: () => (
+    <CaseViewer metadata={lumonaMetadata} Content={LumonaMDX} />
+  )},
+  "siti-case": { title: "TDN Quick Commerce", icon: "ShoppingBag", color: "#f97316", width: 720, height: 640, component: () => (
+    <CaseViewer metadata={tdnMetadata} Content={TDNMDX} />
+  )},
+  "invitation-case": { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 720, height: 640, component: () => (
+    <CaseViewer metadata={invitationMetadata} Content={InvitationMDX} />
+  )},
   // Dock apps
   finder: { title: "Finder", icon: "FolderOpen", color: "#60a5fa", width: 640, height: 440, component: Finder },
   mail: { title: "Mail", icon: "Mail", color: "#3b82f6", width: 560, height: 540, component: Mail },
@@ -53,6 +54,7 @@ const APP_CONFIGS: Record<string, { title: string; icon: string; color: string; 
   lumona: { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 520, component: LumonaERP },
   invitation: { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 640, height: 520, component: DigitalInvitation },
   apps: { title: "Spotlight", icon: "Search", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
+  settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
 };
 
 const DOCK_ITEMS = [
@@ -68,35 +70,14 @@ const DOCK_ITEMS = [
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
-function getDefaultPosition(appId: string, index: number, isMobile: boolean): { x: number; y: number } {
-  if (isMobile) {
-    return { x: 10, y: 40 + index * 10 };
-  }
-  const defaults: Record<string, { x: number; y: number }> = {
-    finder: { x: 100, y: 50 },
-    mail: { x: 140, y: 70 },
-    notes: { x: 80, y: 40 },
-    photos: { x: 120, y: 60 },
-    music: { x: 160, y: 80 },
-    terminal: { x: 200, y: 100 },
-    lumona: { x: 60, y: 40 },
-    invitation: { x: 100, y: 60 },
-    apps: { x: 140, y: 80 },
-  };
-  const base = defaults[appId] || { x: 100 + index * 30, y: 80 + index * 20 };
-  return {
-    x: base.x + (index % 3) * 20,
-    y: base.y + Math.floor(index / 3) * 20,
-  };
-}
-
 export default function Home() {
-  const { theme, toggle } = useTheme();
+  const { theme, toggle, wallpaper } = useTheme();
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -145,16 +126,44 @@ export default function Home() {
       const config = APP_CONFIGS[appId];
       if (!config) return;
 
-      const pos = getDefaultPosition(appId, windows.length, isMobile);
       const width = isMobile ? window.innerWidth - 20 : config.width;
       const height = isMobile ? window.innerHeight - 100 : config.height;
-      const isSpotlight = appId === "apps";
+
+      const TOPBAR_H = 28;
+      const centerX = Math.max(20, (window.innerWidth - width) / 2);
+      const centerY = Math.max(TOPBAR_H + 12, (window.innerHeight - height) / 3);
+
+      let posX: number, posY: number;
+
+      if (appId === "apps") {
+        // Spotlight always dead center
+        posX = (window.innerWidth - width) / 2;
+        posY = Math.max(60, (window.innerHeight - height) / 4);
+      } else if (windows.length === 0) {
+        // First window: centered
+        posX = centerX;
+        posY = centerY;
+      } else {
+        // Cascade: offset from center so title bars stay visible
+        const visibleWindows = windows.filter((w) => !w.isMinimized);
+        const step = 44;
+        const maxCascade = 280;
+        const cascade = Math.min(visibleWindows.length * step, maxCascade);
+        posX = centerX + cascade;
+        posY = centerY + cascade / 2;
+        // Clamp within viewport bounds
+        const maxX = Math.max(window.innerWidth - width - 20, centerX);
+        const maxY = Math.max(window.innerHeight - height - 80, centerY);
+        posX = Math.min(Math.max(posX, 20), maxX);
+        posY = Math.min(Math.max(posY, 40), maxY);
+      }
+
       const newWindow: WindowState = {
         id: `win-${Date.now()}-${Math.random()}`,
         appId,
         title: config.title,
-        x: isSpotlight ? (window.innerWidth - width) / 2 : pos.x,
-        y: isSpotlight ? Math.max(60, (window.innerHeight - height) / 4) : pos.y,
+        x: posX,
+        y: posY,
         width,
         height,
         zIndex: nextZIndex,
@@ -176,6 +185,27 @@ export default function Home() {
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, isMinimized: true } : w)));
   }, []);
 
+  const maximizeWindow = useCallback((id: string) => {
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, isMaximized: !w.isMaximized } : w))
+    );
+  }, []);
+
+  // Escape to close topmost window
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setWindows((prev) => {
+          if (prev.length === 0) return prev;
+          const topmost = prev.reduce((a, b) => (a.zIndex > b.zIndex ? a : b));
+          return prev.filter((w) => w.id !== topmost.id);
+        });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const dockItemsWithState = DOCK_ITEMS.map((item) => ({
     ...item,
     isOpen: windows.some((w) => w.appId === item.id && !w.isMinimized),
@@ -185,25 +215,115 @@ export default function Home() {
 
   return (
     <div
-      className="h-full w-full relative desktop-bg overflow-hidden"
+      className={`h-full w-full relative overflow-hidden${wallpaper ? "" : " desktop-bg"}`}
+      style={
+        wallpaper
+          ? { backgroundImage: `url(${wallpaper})`, backgroundSize: "cover", backgroundPosition: "center" }
+          : undefined
+      }
     >
       {/* Menu Bar */}
       <div
-        className="h-7 backdrop-blur-xl border-b flex items-center px-4 text-xs fixed top-0 left-0 right-0 z-[9999] transition-colors duration-300"
+        className="h-7 backdrop-blur-xl border-b flex items-center px-3 text-xs fixed top-0 left-0 right-0 z-[9999] transition-colors duration-300"
         style={{
           background: "var(--menubar-bg)",
           borderColor: "var(--border-subtle)",
           color: "var(--menubar-text)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <span className="font-semibold tracking-wide" style={{ color: "var(--menubar-text)" }}>
-            rafifthi
-          </span>
+        {/* Logo */}
+        <img
+          src={
+            wallpaper === "/wallpaper/wallpaper-1.png"
+              ? "/logo/blue-logo.svg"
+              : wallpaper === "/wallpaper/wallpaper-3.png"
+              ? "/logo/green-logo.svg"
+              : theme === "light"
+              ? "/logo/neutral-light-logo.svg"
+              : "/logo/neutral-dark-logo.svg"
+          }
+          alt="Logo"
+          className="w-4 h-4 flex-shrink-0 mr-2"
+          draggable={false}
+        />
+
+        {/* Menu items */}
+        <div className="flex items-center gap-0.5">
+          {[
+            {
+              id: "rafif",
+              label: "rafifthi",
+              items: [
+                { label: "About Rafif", action: () => openApp("readme") },
+                { label: "Contact", action: () => openApp("mail") },
+                { separator: true },
+                { label: "Settings", action: () => openApp("settings"), shortcut: "⌘," },
+              ],
+            },
+            {
+              id: "file",
+              label: "File",
+              items: [
+                { label: "Download CV", action: () => {} },
+              ],
+            },
+            {
+              id: "help",
+              label: "Help",
+              items: [
+                { label: "Start Tour", action: () => { (window as any).__restartTour?.(); } },
+                { separator: true },
+                { label: "Keyboard Shortcuts", disabled: true },
+              ],
+            },
+          ].map((menu) => (
+            <div key={menu.id} className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (menu.items) {
+                    setActiveMenu(activeMenu === menu.id ? null : menu.id);
+                  }
+                }}
+                className={`px-2 py-0.5 rounded transition-colors duration-150 ${
+                  menu.id === "rafif" ? "font-bold" : "font-normal"
+                }`}
+                style={{
+                  background: activeMenu === menu.id ? "var(--bg-hover)" : "transparent",
+                  color: "var(--menubar-text)",
+                }}
+                onMouseEnter={(e) => {
+                  if (activeMenu !== menu.id) e.currentTarget.style.background = "var(--bg-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (activeMenu !== menu.id) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {menu.label}
+              </button>
+
+              <AnimatePresence>
+                {activeMenu === menu.id && menu.items && (
+                  <MenuDropdown
+                    items={menu.items.map((item: any) => ({
+                      label: item.label,
+                      onClick: item.action,
+                      disabled: item.disabled,
+                      separator: item.separator,
+                      shortcut: item.shortcut,
+                    }))}
+                    onClose={() => setActiveMenu(null)}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
         </div>
+
         <div className="flex-1" />
         <div className="flex items-center gap-3" style={{ color: "var(--menubar-text)" }}>
           <button
+            id="tour-theme-toggle"
             onClick={(e) => { e.stopPropagation(); toggle(); }}
             className="hover:opacity-80 transition-opacity"
             title="Toggle theme"
@@ -216,7 +336,7 @@ export default function Home() {
       </div>
 
       {/* Desktop Icons */}
-      <div className="absolute inset-0 pt-8 pb-20 px-4">
+      <div id="tour-desktop-area" className="absolute inset-0 pt-8 pb-20 px-4">
         {desktopItems.map((item) => (
           <DesktopIcon
             key={item.id}
@@ -248,15 +368,18 @@ export default function Home() {
               width={win.width}
               height={win.height}
               zIndex={win.zIndex}
+              isMaximized={win.isMaximized}
               onFocus={() => focusWindow(win.id)}
               onClose={() => closeWindow(win.id)}
               onMinimize={() => minimizeWindow(win.id)}
+              onMaximize={() => maximizeWindow(win.id)}
               icon={config.icon}
             >
               <AppComponent
                 windowId={win.id}
                 onClose={() => closeWindow(win.id)}
                 onOpenApp={openApp}
+                isMaximized={win.isMaximized}
               />
             </Window>
           );
@@ -273,6 +396,9 @@ export default function Home() {
         isVertical={isMobile}
         theme={theme}
       />
+
+      {/* Onboarding Tour */}
+      <Onboarding />
     </div>
   );
 }

@@ -41,8 +41,9 @@ export default function Window({
   useEffect(() => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const TOPBAR_H = 28; // h-7 desktop menu bar
     const safeX = Math.min(Math.max(x, 0), Math.max(vw - width - 20, 0));
-    const safeY = Math.min(Math.max(y, 0), Math.max(vh - height - 80, 0));
+    const safeY = Math.max(Math.min(y, Math.max(vh - height - 80, TOPBAR_H)), TOPBAR_H);
     setPosition({ x: safeX, y: safeY });
   }, [x, y, width, height]);
 
@@ -57,7 +58,7 @@ export default function Window({
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1, x: position.x, y: position.y }}
         exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        transition={{ type: "spring", stiffness: 450, damping: 30, mass: 0.9 }}
         onPointerDown={onFocus}
         style={{
           position: "absolute",

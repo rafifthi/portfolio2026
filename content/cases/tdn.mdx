@@ -1,0 +1,66 @@
+export const metadata = {
+  id: "tdn-case",
+  title: "TDN Quick Commerce",
+  banner: "https://picsum.photos/seed/tdn-meat-market/800/300",
+  meta: [
+    { label: "Role", value: "Product Designer" },
+    { label: "Industry", value: "Fresh Grocery · Quick Commerce" },
+    { label: "Deliverable", value: "3 Apps · Figma Prototype" },
+    { label: "Status", value: "Shipped · Live" },
+  ],
+};
+
+## Overview
+
+TDN (Toko Daging Nusantara) is an Indonesian fresh meat retailer that needed to go digital — fast. The challenge wasn't just building an e-commerce app. Fresh meat is time-sensitive, temperature-critical, and operationally unforgiving. You don't get a second chance when the product has a shelf life measured in hours.
+
+My team designed and delivered a full quick-commerce ecosystem: a **customer app** for browsing and ordering, a **picker app** for store staff preparing orders, and a **courier app** for last-mile delivery. Three surfaces, one coordinated flow.
+
+<Callout icon="Package">
+  Fresh product commerce isn't just a checkout problem — it's a logistics choreography problem. All three apps had to work in sync or the whole thing falls apart.
+</Callout>
+
+---
+
+## The problem
+
+Selling fresh meat online is fundamentally different from selling apparel or electronics:
+
+- **No margin for delay.** A fresh order sitting in "processing" for 20 minutes is a problem. Customers expect quick-commerce speed — not same-day, but same-hour.
+- **Picker accuracy is critical.** The wrong cut or weight ruins the customer experience and damages trust faster than any other category.
+- **Courier coordination is tight.** Delivery windows are short, and couriers need real-time handoff information — not a paper ticket stuffed in a bag.
+
+The retailer had been managing orders through WhatsApp groups and manual spreadsheets. The brief was to replace all of that with something their team could actually use under pressure.
+
+---
+
+## What we built
+
+### Customer App
+The consumer-facing experience. Clean product catalog organized by cut and type, with clear weight/pricing transparency — a common pain point for meat buyers who distrust "approximately 500g" listings. Cart and checkout flows optimized for repeat ordering, since TDN's best customers order weekly.
+
+### Picker App
+Designed for use on a phone with one hand, often while holding product with the other. The picker app receives orders the moment they're confirmed, shows a clear pick list with exact cuts and weights, and lets staff mark items ready with minimal taps. A bad picker UI costs time and creates errors — so I stripped it back to the essentials: what to pick, in what order, and when to hand off.
+
+<Callout icon="CheckSquare">
+  The picker flow was the most ops-critical surface. I spent more time on it than the customer app — because a confused picker is a missed delivery window.
+</Callout>
+
+### Courier App
+Couriers receive a handoff notification when an order is packed and ready. The app surfaces delivery address, order summary, and a one-tap navigation handoff to maps. Status updates (picked up, on the way, delivered) flow back to the customer in real time.
+
+---
+
+## Design decisions I'm proud of
+
+1. **One order ID across all three apps.** Sounds obvious, but getting a single source of truth for order state — visible consistently to customer, picker, and courier — required pushing back on early spec decisions that siloed each app.
+2. **Picker app designed for stress.** Warehouse environments are loud, hands are busy, and time pressure is real. Large touch targets, high contrast, and a ruthlessly linear flow — no navigation decisions mid-pick.
+3. **Transparent weight pricing in the customer app.** We showed exact weight ranges and calculated price per gram upfront, reducing the most common post-delivery complaint: "this wasn't what I expected."
+
+---
+
+## Outcome
+
+The three-app system replaced the team's WhatsApp-based workflow and is now live in operations. Order processing time dropped significantly once pickers had a structured flow instead of interpreting messages in a group chat.
+
+*Figma prototype embedded below — coming soon.*

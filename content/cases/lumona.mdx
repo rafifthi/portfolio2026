@@ -1,0 +1,64 @@
+export const metadata = {
+  id: "lumona-case",
+  title: "Lumona ERP & POS",
+  banner: "https://picsum.photos/seed/lumona-banner/800/300",
+  meta: [
+    { label: "Role", value: "Product Manager / Owner" },
+    { label: "Domain", value: "Supply Chain & Retail" },
+    { label: "Deliverable", value: "Figma Prototype" },
+    { label: "Status", value: "Concept · On Hold" },
+  ],
+};
+
+## Overview
+
+Lumona is an ERP & POS concept I drove as product manager. The idea was simple to say and brutal to execute: give retail businesses one place to run their whole supply chain — procurement, cataloging, assortment, stock, and point-of-sale — without needing a consultant to set it up.
+
+It's industry-agnostic by design. Whether you're moving fashion, F&B, or hardware, the underlying flow is the same: stuff comes in, gets organized, gets sold. Lumona models that flow once and adapts the surface.
+
+<Callout icon="Lightbulb">
+  My job here wasn't to write the code — it was to make a genuinely complex domain feel obvious. Most of the work was deciding what *not* to build.
+</Callout>
+
+> **Note:** This project is currently on hold, so I'm showcasing the product thinking and the Figma prototype rather than a shipped product. No vanity metrics here — just the work.
+
+---
+
+## What I owned
+
+As PM/PO I sat between the business, design, and engineering and was accountable for *what* we built and *why*:
+
+- Mapped the end-to-end supply chain flow and turned it into a product spec
+- Defined the core modules and, more importantly, their boundaries
+- Prioritized ruthlessly — what's v1, what's "nice to have," what's a trap
+- Built the information architecture and prototyped key flows in Figma
+- Wrote the user stories and acceptance criteria the team built against
+
+---
+
+## The hard part: supply chain is a web, not a list
+
+Retail ops people don't think in tidy screens. A single purchase order touches suppliers, items, warehouses, costs, and tax — and changing one ripples into all the others. The challenge was modeling those relationships so the product felt powerful to a warehouse manager but didn't scare off a small shop owner.
+
+### Core modules
+
+- **Procurement** — purchase orders, supplier management, receiving
+- **Item Cataloging** — a single source of truth for every product, variant, and unit
+- **Assortment** — deciding what's sold where, and keeping it consistent across channels
+- **Point of Sale** — the front-of-house that has to *just work*, offline-friendly and fast
+
+---
+
+## Product decisions I'm proud of
+
+1. **Catalog-first architecture.** Everything hangs off one clean item model, so procurement, assortment, and POS all speak the same language instead of duplicating data.
+2. **Progressive complexity.** A new user sees a simple POS. Power users unlock procurement and assortment when they're ready — the depth is there, but it's opt-in.
+3. **Killing features on purpose.** The fastest way to make an ERP unusable is to ship every request. I held the line on scope so v1 could actually ship.
+
+---
+
+## Where it stands
+
+Lumona is paused, but the thinking holds up. It's the piece I point to when I want to show how I approach a messy domain: understand the real workflow, model it once, and design the surface so complexity is something you grow into — not something that hits you on day one.
+
+*Figma prototype embedded below — coming soon.*

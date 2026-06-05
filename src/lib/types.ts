@@ -69,6 +69,7 @@ export interface TerminalLine {
 
 export interface Album {
   id: string;
+  deezerId: number;
   title: string;
   artist: string;
   year: string;
@@ -80,6 +81,7 @@ export interface Album {
 export interface Song {
   id: string;
   title: string;
+  artist: string;
   duration: string;
   track: number;
   audioUrl: string;
@@ -90,7 +92,7 @@ export interface Playlist {
   name: string;
   icon: string;
   color: string;
-  songIds: string[];
+  deezerPlaylistId: number;
 }
 
 export type NotionBlock =

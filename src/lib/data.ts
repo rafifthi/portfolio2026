@@ -1,12 +1,12 @@
-import { DesktopItem, FinderItem, Note, Photo, MailMessage, Album, StudyCase, Playlist } from "./types";
+import { DesktopItem, FinderItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
 
 export const desktopItems: DesktopItem[] = [
-  { id: "readme", label: "README.txt", image: "https://picsum.photos/seed/notepad/240/320", x: 4, y: 10, width: 150, appId: "readme" },
-  { id: "wife", label: "wife", image: "https://picsum.photos/seed/karina/240/320", x: 22, y: 8, width: 140, appId: "wife" },
-  { id: "cv", label: "CV.pdf", image: "https://picsum.photos/seed/rafifportrait/260/340", x: 40, y: 12, width: 160, appId: "cv" },
-  { id: "lumona", label: "Lumona ERP", image: "https://picsum.photos/seed/lumona/320/240", x: 60, y: 6, width: 200, appId: "lumona-case" },
-  { id: "siti", label: "Siti Khadija", image: "https://picsum.photos/seed/siti/260/340", x: 78, y: 14, width: 150, appId: "siti-case" },
-  { id: "invitation", label: "Digital Invitation", image: "https://picsum.photos/seed/invite/300/260", x: 12, y: 52, width: 190, appId: "invitation-case" },
+  { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
+  { id: "wife", label: "wife", image: "/images/ryujin-gf.jpg", x: 28, y: 8, width: 140, appId: "wife" },
+  { id: "lumona", label: "Supply Chain ERP", image: "https://picsum.photos/seed/lumona/320/240", x: 55, y: 10, width: 200, appId: "lumona-case" },
+  { id: "siti", label: "TDN Quick Commerce", image: "https://picsum.photos/seed/tdn-meat/260/340", x: 80, y: 14, width: 150, appId: "siti-case" },
+  { id: "invitation", label: "Digital Invitation", image: "https://picsum.photos/seed/invite/300/260", x: 20, y: 55, width: 190, appId: "invitation-case" },
+  { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 62, y: 58, width: 160, appId: "cv" },
 ];
 
 export const finderSections: Record<string, FinderItem[]> = {
@@ -43,37 +43,69 @@ export const notes: Note[] = [
   {
     id: "n1",
     folder: "Career",
-    title: "2026 Career Goals",
+    title: "Product Manager",
     content:
-      "1. Land a senior frontend role at a tech-first company.\n2. Contribute to open source projects (Next.js, shadcn).\n3. Speak at a local tech meetup or conference.\n4. Build a passive income side project.",
-    date: "May 12, 2026",
+      "Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Dec 2025 - Present\nType: Full-time\n\nDescription: Own product development for ERP SaaS platform targeting SMEs, leading discovery, prioritization, and execution across Merchandising, PoS, and Bookkeeping.\n\nAchievements\n• Own product development for ERP SaaS platform (Merchandising, PoS, Bookkeeping) targeting SMEs\n• Lead product discovery, competitor analysis, and feature prioritization for MVP development\n• Translate business needs into product requirements, user flows, and system-level specifications\n• Work closely with engineering to manage execution, including sprint planning, ticketing, and QA\n• Balance speed and scalability by making trade-offs across business, UX, and technical constraints\n• Introduced AI-assisted workflows to reduce turnaround time from idea to implementation",
+    date: "December 2025",
   },
   {
     id: "n2",
     folder: "Career",
-    title: "Interview Prep",
+    title: "Senior Product Designer",
     content:
-      "- Review system design fundamentals\n- Practice React performance optimization\n- Prepare portfolio talking points\n- Mock interview with mentor on Friday",
-    date: "May 10, 2026",
+      "Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Jun 2025 - Dec 2025\nType: Full-time\n\nDescription: Managed end-to-end design across multiple business units with shifting priorities, bridging design and engineering.\n\nAchievements\n• Managed end-to-end design across multiple business units with shifting priorities\n• Switched seamlessly between UI/UX, branding, graphic design, and website content updates\n• Improved requirement clarity and reduced iteration cycles through better early-stage alignment\n• Acted as key bridge between design and engineering during development cycles",
+    date: "June 2025",
   },
   {
     id: "n3",
-    folder: "Education",
-    title: "Courses to Finish",
+    folder: "Career",
+    title: "Product Team Lead",
     content:
-      "- Advanced TypeScript Patterns\n- Rust for Web Developers\n- System Design by ByteByteGo\n- Figma Advanced Prototyping",
-    date: "May 8, 2026",
+      "Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Jul 2023 - Jun 2025\nType: Full-time\n\nDescription: Led a team of 2–4 designers across ERP, HRIS, and loyalty platforms, establishing workflows and scalable design systems.\n\nAchievements\n• Led a team of 2–4 designers across ERP, HRIS, and loyalty platforms\n• Established structured workflows to improve delivery consistency and cross-team collaboration\n• Developed and maintained scalable design systems across multiple products\n• Contributed to product direction through user insights and system-level thinking",
+    date: "July 2023",
   },
   {
     id: "n4",
-    folder: "Education",
-    title: "Reading List",
+    folder: "Career",
+    title: "Product Designer",
     content:
-      "1. Designing Data-Intensive Applications\n2. The Pragmatic Programmer\n3. Refactoring UI\n4. Clean Architecture",
-    date: "May 5, 2026",
+      "Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Oct 2022 - Jul 2023\nType: Full-time\n\nDescription: Designed UX for retail platforms including PoS and scan-and-go experiences, promoted to managerial track.\n\nAchievements\n• Designed UX for retail platforms including PoS and scan-and-go experiences\n• Delivered end-to-end flows from user journey to high-fidelity UI\n• Improved usability and reduced friction in transaction-related user flows\n• Recognized as high-potential contributor and promoted to managerial track",
+    date: "October 2022",
   },
   {
     id: "n5",
+    folder: "Career",
+    title: "Big Data Analyst Intern",
+    content:
+      "Company: Indosat Ooredoo\nLocation: Jakarta, Indonesia\nPeriod: Jun 2020 - Aug 2020\nType: Internship\n\nDescription: Supported product and business decisions through data analysis, translating complex datasets into actionable recommendations.\n\nAchievements\n• Supported product and business decisions through data analysis and insights\n• Translated complex datasets into actionable and user-centric recommendations\n• Developed skills in product analysis, data interpretation, and data-driven storytelling",
+    date: "June 2020",
+  },
+  {
+    id: "n6",
+    folder: "Career",
+    title: "Assistant Lecturer",
+    content:
+      "Company: Faculty of Computer Science, Universitas Brawijaya\nLocation: Malang, Indonesia\nPeriod: Jan 2020 - Jun 2020\nType: Part-time\n\nDescription: Assisted in teaching Information System Analysis & Design, supporting student outcomes through structured guidance.\n\nAchievements\n• Assisted in teaching UX and system design concepts\n• Improved student outcomes through structured guidance and evaluation",
+    date: "January 2020",
+  },
+  {
+    id: "n7",
+    folder: "Education",
+    title: "Bachelor of Computer Science",
+    content:
+      "Institution: Universitas Brawijaya, Faculty of Computer Science\nLocation: Malang, Indonesia\nDegree: Bachelor of Computer Science\nMajor: System Information Design\nMinor: Data Analytics\nPeriod: Aug 2017 - Jan 2022\n\nRelevant Coursework\n• Information Systems Analysis and Design\n• Human-Computer Interaction\n• Information Technology Project Management\n• Data Analytics & Visualization\n• Web Programming\n• Cloud Service Technology",
+    date: "August 2017",
+  },
+  {
+    id: "n8",
+    folder: "Education",
+    title: "Google UX Design Certificate",
+    content:
+      "Institution: Google (via Coursera)\nCertification: Foundation of UX Design\nYear: 2022\n\nDescription: Completed Google's Foundation of UX Design course, covering core UX principles, user research, wireframing, and prototyping.",
+    date: "2022",
+  },
+  {
+    id: "n9",
     folder: "Goals",
     title: "Q2 Personal Goals",
     content:
@@ -81,7 +113,7 @@ export const notes: Note[] = [
     date: "Apr 1, 2026",
   },
   {
-    id: "n6",
+    id: "n10",
     folder: "Goals",
     title: "Side Project Ideas",
     content:
@@ -89,28 +121,41 @@ export const notes: Note[] = [
     date: "Apr 15, 2026",
   },
   {
-    id: "n7",
+    id: "n11",
     folder: "Quotes",
-    title: "Favorites",
-    content:
-      '"The only way to do great work is to love what you do." - Steve Jobs\n\n"Simplicity is the ultimate sophistication." - Leonardo da Vinci\n\n"Code is like humor. When you have to explain it, it is bad." - Cory House',
+    title: "Be stubborn with the visions, but be flexible with the plan",
+    content: "Be stubborn with the visions, but be flexible with the plan.",
     date: "Mar 20, 2026",
   },
   {
-    id: "n8",
+    id: "n11b",
+    folder: "Quotes",
+    title: "Mending yang ga pasti daripada udah pasti tai",
+    content: "Mending yang ga pasti daripada udah pasti tai.",
+    date: "Feb 14, 2026",
+  },
+  {
+    id: "n11c",
+    folder: "Quotes",
+    title: "Life is not about what you want, but is what you can",
+    content: "Life is not about what you want, but is what you can.",
+    date: "Jan 5, 2026",
+  },
+  {
+    id: "n12",
     folder: "Random",
-    title: "Grocery List",
+    title: "Kata-kata aneh tapi beneran ada",
     content:
-      "- Eggs\n- Milk (oat)\n- Avocados\n- Sourdough bread\n- Coffee beans\n- Bananas",
+      "- capitan gorengan\n- plastik stnk\n- cengkeh nastar\n- patahan regal\n- waduk pacitan\n- kulit tumit\n- perut cicak\n- timbangan abon\n- laba2 brazil\n- pabrik sedotan\n- oleh2 haji\n- bahasa kaldu\n- kutang britney spears\n- beli tralis\n- kursi voli\n- manset oyj\n- pilot ultraman\n- genteng contoh\n- tenda artis\n- les ludruk",
     date: "May 11, 2026",
   },
   {
-    id: "n9",
+    id: "n13",
     folder: "Random",
-    title: "Movie Watchlist",
+    title: "Ide Nama Bisnis",
     content:
-      "- Dune: Part Two\n- The Creator\n- Poor Things\n- Past Lives\n- Spider-Man: Beyond the Spider-Verse",
-    date: "Feb 10, 2026",
+      "1. Kebab Lasan\n2. Kebab Akibat\n3. Kebab Turkiyem\n4. Salon Yanto\n5. Jejak Risol",
+    date: "Apr 3, 2026",
   },
 ];
 
@@ -132,123 +177,51 @@ export const mailMessages: MailMessage[] = [
   { id: "m4", from: "friend@example.com", subject: "Re: Weekend Plans", preview: "Sounds great, let's meet at...", date: "May 8", read: true },
 ];
 
-function pad(n: number) { return String(n).padStart(2, "0"); }
-function audioUrl(albumId: string, track: number) { return `/music/${albumId}-${pad(track)}.wav`; }
-
-export const albums: Album[] = [
-  {
-    id: "al1",
-    title: "After Hours",
-    artist: "The Weeknd",
-    year: "2020",
-    color: "#e11d48",
-    cover: "https://picsum.photos/seed/al1-cover/300",
-    songs: [
-      { id: "s1", title: "Alone Again", duration: "4:10", track: 1, audioUrl: audioUrl("al1", 1) },
-      { id: "s2", title: "Too Late", duration: "3:59", track: 2, audioUrl: audioUrl("al1", 2) },
-      { id: "s3", title: "Hardest to Love", duration: "3:31", track: 3, audioUrl: audioUrl("al1", 3) },
-      { id: "s4", title: "Scared to Live", duration: "3:11", track: 4, audioUrl: audioUrl("al1", 4) },
-      { id: "s5", title: "Snowchild", duration: "4:09", track: 5, audioUrl: audioUrl("al1", 5) },
-    ],
-  },
-  {
-    id: "al2",
-    title: "Random Access Memories",
-    artist: "Daft Punk",
-    year: "2013",
-    color: "#1e3a8a",
-    cover: "https://picsum.photos/seed/al2-cover/300",
-    songs: [
-      { id: "s6", title: "Give Life Back to Music", duration: "4:34", track: 1, audioUrl: audioUrl("al2", 1) },
-      { id: "s7", title: "The Game of Love", duration: "5:21", track: 2, audioUrl: audioUrl("al2", 2) },
-      { id: "s8", title: "Giorgio by Moroder", duration: "9:04", track: 3, audioUrl: audioUrl("al2", 3) },
-      { id: "s9", title: "Within", duration: "3:48", track: 4, audioUrl: audioUrl("al2", 4) },
-      { id: "s10", title: "Instant Crush", duration: "5:37", track: 5, audioUrl: audioUrl("al2", 5) },
-    ],
-  },
-  {
-    id: "al3",
-    title: "Currents",
-    artist: "Tame Impala",
-    year: "2015",
-    color: "#7c3aed",
-    cover: "https://picsum.photos/seed/al3-cover/300",
-    songs: [
-      { id: "s11", title: "Let It Happen", duration: "7:46", track: 1, audioUrl: audioUrl("al3", 1) },
-      { id: "s12", title: "Nangs", duration: "1:48", track: 2, audioUrl: audioUrl("al3", 2) },
-      { id: "s13", title: "The Moment", duration: "4:15", track: 3, audioUrl: audioUrl("al3", 3) },
-      { id: "s14", title: "Yes I'm Changing", duration: "4:30", track: 4, audioUrl: audioUrl("al3", 4) },
-      { id: "s15", title: "Eventually", duration: "5:19", track: 5, audioUrl: audioUrl("al3", 5) },
-    ],
-  },
-  {
-    id: "al4",
-    title: "Midnights",
-    artist: "Taylor Swift",
-    year: "2022",
-    color: "#0f172a",
-    cover: "https://picsum.photos/seed/al4-cover/300",
-    songs: [
-      { id: "s16", title: "Lavender Haze", duration: "3:22", track: 1, audioUrl: audioUrl("al4", 1) },
-      { id: "s17", title: "Maroon", duration: "3:38", track: 2, audioUrl: audioUrl("al4", 2) },
-      { id: "s18", title: "Anti-Hero", duration: "3:20", track: 3, audioUrl: audioUrl("al4", 3) },
-      { id: "s19", title: "Snow on the Beach", duration: "4:16", track: 4, audioUrl: audioUrl("al4", 4) },
-      { id: "s20", title: "You're On Your Own, Kid", duration: "3:14", track: 5, audioUrl: audioUrl("al4", 5) },
-    ],
-  },
-  {
-    id: "al5",
-    title: "Melodrama",
-    artist: "Lorde",
-    year: "2017",
-    color: "#0369a1",
-    cover: "https://picsum.photos/seed/al5-cover/300",
-    songs: [
-      { id: "s21", title: "Green Light", duration: "3:54", track: 1, audioUrl: audioUrl("al5", 1) },
-      { id: "s22", title: "Sober", duration: "3:17", track: 2, audioUrl: audioUrl("al5", 2) },
-      { id: "s23", title: "Homemade Dynamite", duration: "3:09", track: 3, audioUrl: audioUrl("al5", 3) },
-      { id: "s24", title: "The Louvre", duration: "4:31", track: 4, audioUrl: audioUrl("al5", 4) },
-      { id: "s25", title: "Liability", duration: "2:52", track: 5, audioUrl: audioUrl("al5", 5) },
-    ],
-  },
-  {
-    id: "al6",
-    title: "Blonde",
-    artist: "Frank Ocean",
-    year: "2016",
-    color: "#fcd34d",
-    cover: "https://picsum.photos/seed/al6-cover/300",
-    songs: [
-      { id: "s26", title: "Nikes", duration: "5:14", track: 1, audioUrl: audioUrl("al6", 1) },
-      { id: "s27", title: "Ivy", duration: "4:09", track: 2, audioUrl: audioUrl("al6", 2) },
-      { id: "s28", title: "Pink + White", duration: "3:04", track: 3, audioUrl: audioUrl("al6", 3) },
-      { id: "s29", title: "Solo", duration: "4:17", track: 4, audioUrl: audioUrl("al6", 4) },
-      { id: "s30", title: "Self Control", duration: "4:09", track: 5, audioUrl: audioUrl("al6", 5) },
-    ],
-  },
+/** Deezer album IDs — all metadata fetched dynamically */
+export const albumIds = [
+  796709191, // Porter Robinson - Nurture
+  163994622, // Galimatias - Renaissance Boy
+  6575789,  // Daft Punk - Random Access Memories
+  356437407, // Fred Again.. - Actual Life 3
+  95829942,  // The Weeknd - My Dear Melancholy,
+  796708851, // Galdive - Blue
+  118560252, // Madeon - Good Faith
+  545873632, // offonoff - boy.
+  458874495, // Flume - Hi This Is Flume
+  8198764,   // Porter Robinson - Worlds
 ];
 
-export const playlists = [
+/** Color palette cycled for album covers (fallback when cover image hasn't loaded) */
+const albumColors = [
+  "#0d9488", "#3b0764", "#fbbf24", "#1e293b", "#991b1b",
+  "#0c4a6e", "#6366f1", "#1c1917", "#064e3b", "#0e7490",
+];
+
+export function albumColor(index: number) {
+  return albumColors[index % albumColors.length];
+}
+
+export const playlists: Playlist[] = [
   {
-    id: "favorites",
-    name: "Favorites",
-    icon: "Heart",
-    color: "#fa2d48",
-    songIds: ["s1", "s4", "s9", "s10", "s11", "s15", "s17", "s18", "s21", "s24", "s28", "s30"],
-  },
-  {
-    id: "wedding",
-    name: "Wedding",
+    id: "cherished",
+    name: "cherished music",
     icon: "Heart",
     color: "#ec4899",
-    songIds: ["s27", "s30", "s24", "s25", "s4", "s14"],
+    deezerPlaylistId: 15289137063,
+  },
+  {
+    id: "19jul25",
+    name: "19 Jul '25",
+    icon: "Flower",
+    color: "#f59e0b",
+    deezerPlaylistId: 15289126743,
   },
   {
     id: "car-dj",
-    name: "Car DJ",
-    icon: "Radio",
-    color: "#f59e0b",
-    songIds: ["s6", "s21", "s22", "s3", "s11", "s17", "s18"],
+    name: "fip the car DJ",
+    icon: "Car",
+    color: "#3b82f6",
+    deezerPlaylistId: 15289160423,
   },
 ];
 

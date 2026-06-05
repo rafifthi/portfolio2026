@@ -33,6 +33,9 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
   if (id === "notes") return theme === "dark" ? "/dock/notes-dark.png" : "/dock/notes-light.png";
   if (id === "photos") return theme === "dark" ? "/dock/photos-dark.png" : "/dock/photos-light.png";
   if (id === "github") return theme === "dark" ? "/dock/github-dark.png" : "/dock/github-light.png";
+  if (id === "lumona") return theme === "dark" ? "/dock/lumona-dark.png" : "/dock/lumona-light.png";
+  if (id === "invitation") return "/dock/digital-invitation.png";
+  if (id === "apps") return "/dock/spotlight.png";
   return map[id] || null;
 }
 
@@ -88,9 +91,9 @@ function DockItemComponent({
       <div
         className="rounded-full transition-colors duration-300"
         style={{
-          width: isVertical ? 1 : 24,
-          height: isVertical ? 24 : 1,
-          margin: isVertical ? "4px 0" : "0 4px",
+          width: isVertical ? 28 : 1,
+          height: isVertical ? 1 : 28,
+          margin: isVertical ? "0 4px" : "4px 0",
           background: "var(--border-hover)",
         }}
       />
@@ -105,6 +108,7 @@ function DockItemComponent({
 
   return (
     <motion.button
+      id={`dock-${item.id}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
@@ -128,8 +132,9 @@ function DockItemComponent({
 
       {hovered && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: isVertical ? 0 : 5 }}
+          initial={{ opacity: 0, scale: 0.92, y: isVertical ? 0 : 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
           className={`absolute px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-50 shadow-lg text-xs ${
             isVertical ? "left-full ml-2" : "bottom-full mb-2"
           }`}
@@ -150,6 +155,7 @@ function DockItemComponent({
 export default function Dock({ items, onOpenApp, isVertical, theme = "dark" }: DockProps) {
   return (
     <div
+      id="tour-dock"
       className={`dock-glass flex items-center ${
         isVertical
           ? "flex-col py-3 px-2 rounded-2xl fixed left-3 top-1/2 -translate-y-1/2 z-50 gap-2.5"

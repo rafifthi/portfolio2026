@@ -16,6 +16,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Portfolio - macOS Desktop",
   description: "A portfolio website inspired by macOS desktop",
+  icons: {
+    icon: [
+      { url: "/light-favicon.svg", media: "(prefers-color-scheme: light)" },
+      { url: "/dark-favicon.svg", media: "(prefers-color-scheme: dark)" },
+    ],
+  },
 };
 
 export default function RootLayout({

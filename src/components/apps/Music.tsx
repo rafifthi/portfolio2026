@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon } from "@/components/Icon";
-import { albums, playlists } from "@/lib/data";
+import { albumIds, albumColor, playlists } from "@/lib/data";
 import { Album, Song, Playlist } from "@/lib/types";
+import { fetchAlbumById, fetchPreview, fetchPlaylistById } from "@/lib/deezer";
 
 function formatTime(s: number) {
   if (isNaN(s) || !isFinite(s)) return "0:00";
@@ -12,18 +13,18 @@ function formatTime(s: number) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-function allSongs() {
-  return albums.flatMap((a) => a.songs);
-}
-
-function songAlbum(songId: string) {
-  return albums.find((a) => a.songs.some((s) => s.id === songId)) || null;
-}
-
 export default function Music() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Albums fetched on mount
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [loadingAlbums, setLoadingAlbums] = useState(true);
+
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+  const [playlistData, setPlaylistData] = useState<Record<string, { title: string; cover: string; songs: Song[] }>>({});
+  const [loadingPlaylist, setLoadingPlaylist] = useState<string | null>(null);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -31,9 +32,54 @@ export default function Music() {
   const [volume, setVolumeState] = useState(0.7);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"off" | "one" | "all">("off");
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
 
-  const currentSong = currentSongId ? allSongs().find((s) => s.id === currentSongId) : null;
-  const currentAlbum = currentSongId ? songAlbum(currentSongId) : selectedAlbum;
+  const playlistSongs = selectedPlaylist ? playlistData[selectedPlaylist.id]?.songs || [] : [];
+  const tracks = selectedAlbum ? selectedAlbum.songs : playlistSongs;
+  const playlistMeta = selectedPlaylist ? playlistData[selectedPlaylist.id] : undefined;
+  const currentSong = currentSongId ? tracks.find((s) => s.id === currentSongId) || null : null;
+
+  // Fetch all albums on mount
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(albumIds.map((id) => fetchAlbumById(id))).then((results) => {
+      if (cancelled) return;
+      const loaded: Album[] = [];
+      results.forEach((data, i) => {
+        if (data) {
+          loaded.push({
+            deezerId: albumIds[i],
+            id: `dz-album-${albumIds[i]}`,
+            title: data.title,
+            artist: data.artist,
+            year: data.year,
+            color: albumColor(i),
+            cover: data.cover,
+            songs: data.songs,
+          });
+        }
+      });
+      setAlbums(loaded);
+      setLoadingAlbums(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch playlist on select
+  useEffect(() => {
+    if (!selectedPlaylist) return;
+    if (playlistData[selectedPlaylist.id]) return;
+    let cancelled = false;
+    setLoadingPlaylist(selectedPlaylist.id);
+    fetchPlaylistById(selectedPlaylist.deezerPlaylistId).then((data) => {
+      if (cancelled) return;
+      if (data) {
+        setPlaylistData((prev) => ({ ...prev, [selectedPlaylist.id]: data }));
+      }
+      setLoadingPlaylist(null);
+    });
+    return () => { cancelled = true; };
+  }, [selectedPlaylist]);
 
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
@@ -65,16 +111,10 @@ export default function Music() {
       if (repeat === "one") {
         audio.currentTime = 0;
         audio.play();
-      } else if (repeat === "all") {
-        const source = selectedAlbum || selectedPlaylist;
-        const songs = source
-          ? "songs" in source
-            ? source.songs
-            : source.songIds.map((id) => allSongs().find((s) => s.id === id)!).filter(Boolean)
-          : [];
-        const idx = songs.findIndex((s) => s.id === currentSongId);
-        if (idx < songs.length - 1) {
-          const nextSong = songs[idx + 1];
+      } else if (repeat === "all" && tracks.length > 0) {
+        const idx = tracks.findIndex((s) => s.id === currentSongId);
+        if (idx < tracks.length - 1) {
+          const nextSong = tracks[idx + 1];
           setCurrentSongId(nextSong.id);
           audio.src = nextSong.audioUrl;
           audio.play().catch(() => {});
@@ -87,7 +127,7 @@ export default function Music() {
     };
     audio.addEventListener("ended", onEnd);
     return () => audio.removeEventListener("ended", onEnd);
-  }, [repeat, selectedAlbum, selectedPlaylist, currentSongId]);
+  }, [repeat, tracks, currentSongId]);
 
   // Keyboard
   useEffect(() => {
@@ -99,16 +139,32 @@ export default function Music() {
     return () => window.removeEventListener("keydown", handler);
   });
 
-  const playSong = useCallback((song: Song) => {
+  const playSong = useCallback(async (song: Song) => {
     const audio = audioRef.current;
     if (!audio) return;
     setCurrentSongId(song.id);
-    audio.src = song.audioUrl;
-    audio.currentTime = 0;
-    audio.play().then(() => setIsPlaying(true)).catch(() => {});
     setDuration(0);
     setCurrentTime(0);
-  }, []);
+
+    if (song.audioUrl) {
+      audio.src = song.audioUrl;
+      audio.currentTime = 0;
+      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+      return;
+    }
+
+    const artist = selectedAlbum?.artist || "";
+    if (!artist) return;
+    setPreviewLoading(song.id);
+    const previewUrl = await fetchPreview(artist, song.title);
+    setPreviewLoading(null);
+
+    if (previewUrl) {
+      audio.src = previewUrl;
+      audio.currentTime = 0;
+      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  }, [selectedAlbum]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -123,47 +179,31 @@ export default function Music() {
   }, []);
 
   const handlePrev = useCallback(() => {
-    if (!currentSongId) return;
-    const source = selectedAlbum || selectedPlaylist;
-    const songs = source
-      ? "songs" in source
-        ? source.songs
-        : source.songIds.map((id) => allSongs().find((s) => s.id === id)!).filter(Boolean)
-      : [];
-    const idx = songs.findIndex((s) => s.id === currentSongId);
-    if (idx > 0) playSong(songs[idx - 1]);
-  }, [currentSongId, selectedAlbum, selectedPlaylist, playSong]);
+    if (!currentSongId || tracks.length === 0) return;
+    const idx = tracks.findIndex((s) => s.id === currentSongId);
+    if (idx > 0) playSong(tracks[idx - 1]);
+  }, [currentSongId, tracks, playSong]);
 
   const handleNext = useCallback(() => {
-    if (!currentSongId) return;
-    const source = selectedAlbum || selectedPlaylist;
-    const songs = source
-      ? "songs" in source
-        ? source.songs
-        : source.songIds.map((id) => allSongs().find((s) => s.id === id)!).filter(Boolean)
-      : [];
-    const idx = songs.findIndex((s) => s.id === currentSongId);
-    if (shuffle && songs.length > 1) {
-      const pick = songs[Math.floor(Math.random() * songs.length)];
+    if (!currentSongId || tracks.length === 0) return;
+    const idx = tracks.findIndex((s) => s.id === currentSongId);
+    if (shuffle && tracks.length > 1) {
+      const pick = tracks[Math.floor(Math.random() * tracks.length)];
       if (pick) { playSong(pick); return; }
     }
-    if (idx < songs.length - 1) playSong(songs[idx + 1]);
-  }, [currentSongId, selectedAlbum, selectedPlaylist, shuffle, playSong]);
+    if (idx < tracks.length - 1) playSong(tracks[idx + 1]);
+  }, [currentSongId, tracks, shuffle, playSong]);
 
   const playPauseCurrent = useCallback(
     (song: Song) => {
+      if (previewLoading) return;
       if (currentSongId === song.id) togglePlay();
       else playSong(song);
     },
-    [currentSongId, togglePlay, playSong]
+    [currentSongId, togglePlay, playSong, previewLoading]
   );
 
   const noRepeatCycle: Record<string, "off" | "one" | "all"> = { off: "all", all: "one", one: "off" };
-
-  const sidebarItems: { id: string; label: string; icon: string }[] = [
-    { id: "albums", label: "Albums", icon: "Disc" },
-    ...playlists.map((p) => ({ id: p.id, label: p.name, icon: p.icon })),
-  ];
 
   return (
     <div className="h-full flex transition-colors duration-300" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
@@ -176,28 +216,32 @@ export default function Music() {
           <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Music</span>
         </div>
 
-        {sidebarItems.map((item) => {
-          const isActive = item.id === "albums"
-            ? selectedPlaylist === null
-            : selectedPlaylist?.id === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (item.id === "albums") { setSelectedPlaylist(null); setSelectedAlbum(null); }
-                else { const p = playlists.find((pl) => pl.id === item.id)!; setSelectedPlaylist(p); setSelectedAlbum(null); }
-              }}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
-              style={{
-                background: isActive ? "var(--accent)" : "transparent",
-                color: isActive ? "#fff" : "var(--text-secondary)",
-              }}
-            >
-              <Icon name={item.icon} size={16} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+        <button
+          onClick={() => { setSelectedAlbum(null); setSelectedPlaylist(null); }}
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+          style={{
+            background: !selectedPlaylist ? "var(--accent)" : "transparent",
+            color: !selectedPlaylist ? "#fff" : "var(--text-secondary)",
+          }}
+        >
+          <Icon name="Disc" size={16} />
+          <span>Albums</span>
+        </button>
+
+        {playlists.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => { setSelectedAlbum(null); setSelectedPlaylist(p); }}
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+            style={{
+              background: selectedPlaylist?.id === p.id ? "var(--accent)" : "transparent",
+              color: selectedPlaylist?.id === p.id ? "#fff" : "var(--text-secondary)",
+            }}
+          >
+            <Icon name={p.icon as any} size={16} />
+            <span>{p.name}</span>
+          </button>
+        ))}
       </div>
 
       {/* Main */}
@@ -211,7 +255,6 @@ export default function Music() {
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
-          {/* Album detail view */}
           {selectedAlbum ? (
             <div className="space-y-6">
               <button onClick={() => setSelectedAlbum(null)} className="text-sm flex items-center gap-1 transition-colors hover:opacity-80" style={{ color: "var(--text-secondary)" }}>
@@ -231,52 +274,82 @@ export default function Music() {
               </div>
 
               <TrackList
-                songs={selectedAlbum.songs}
+                songs={tracks}
                 currentSongId={currentSongId}
                 isPlaying={isPlaying}
                 onPlay={playPauseCurrent}
+                previewLoading={previewLoading}
               />
             </div>
-          ) : /* Playlist view */
-          selectedPlaylist ? (
+          ) : selectedPlaylist ? (
             <div className="space-y-6">
+              <button onClick={() => { setSelectedPlaylist(null); setSelectedAlbum(null); }} className="text-sm flex items-center gap-1 transition-colors hover:opacity-80" style={{ color: "var(--text-secondary)" }}>
+                <Icon name="ArrowLeft" size={14} />
+                Library
+              </button>
+
               <div className="flex items-end gap-6">
-                <div className="w-40 h-40 rounded-xl shadow-2xl flex-shrink-0 flex items-center justify-center" style={{ background: selectedPlaylist.color }}>
-                  <Icon name={selectedPlaylist.icon as any} size={48} className="text-white/80" />
+                <div className="w-40 h-40 rounded-xl shadow-2xl flex-shrink-0 overflow-hidden" style={{ background: selectedPlaylist.color }}>
+                  {playlistMeta?.cover ? (
+                    <img src={playlistMeta.cover} alt="" className="w-full h-full object-cover" draggable={false} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Icon name={selectedPlaylist.icon as any} size={48} className="text-white/80" />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="text-xs uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>Playlist</div>
-                  <h2 className="text-3xl font-bold mt-1" style={{ color: "var(--text-primary)" }}>{selectedPlaylist.name}</h2>
-                  <div className="mt-1" style={{ color: "var(--text-secondary)" }}>{selectedPlaylist.songIds.length} songs</div>
+                  <h2 className="text-3xl font-bold mt-1" style={{ color: "var(--text-primary)" }}>{playlistMeta?.title || selectedPlaylist.name}</h2>
+                  <div className="mt-1" style={{ color: "var(--text-secondary)" }}>{playlistMeta?.songs?.length || 0} tracks</div>
                 </div>
               </div>
 
-              <TrackList
-                songs={selectedPlaylist.songIds.map((id) => allSongs().find((s) => s.id === id)!).filter(Boolean)}
-                currentSongId={currentSongId}
-                isPlaying={isPlaying}
-                onPlay={playPauseCurrent}
-              />
+              {loadingPlaylist === selectedPlaylist.id ? (
+                <div className="flex items-center gap-2 py-12 justify-center" style={{ color: "var(--text-tertiary)" }}>
+                  <span className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: "var(--text-tertiary)", borderTopColor: "#fa2d48" }} />
+                  <span className="text-sm">Loading tracks...</span>
+                </div>
+              ) : tracks.length > 0 ? (
+                <TrackList
+                  songs={tracks}
+                  currentSongId={currentSongId}
+                  isPlaying={isPlaying}
+                  onPlay={playPauseCurrent}
+                  previewLoading={previewLoading}
+                />
+              ) : (
+                <div className="py-12 text-center text-sm" style={{ color: "var(--text-tertiary)" }}>
+                  No tracks found for this playlist.
+                </div>
+              )}
             </div>
           ) : (
-            /* Album grid */
             <div>
               <h2 className="text-xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>Albums</h2>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-                {albums.map((album) => (
-                  <button key={album.id} onClick={() => setSelectedAlbum(album)} className="flex flex-col gap-2 text-left group">
-                    <div className="aspect-square rounded-xl shadow-lg transition-transform group-hover:scale-105 relative overflow-hidden" style={{ background: album.color }}>
-                      {album.cover && <img src={album.cover} alt={album.title} className="w-full h-full object-cover" draggable={false} />}
-                      <div className="absolute bottom-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.35)" }}>
-                        <Icon name="Play" size={13} className="text-white ml-0.5" />
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-5">
+                {loadingAlbums
+                  ? Array.from({ length: 10 }).map((_, i) => (
+                      <div key={i} className="flex flex-col gap-2">
+                        <div className="aspect-square rounded-xl animate-pulse" style={{ background: "var(--bg-input)" }} />
+                        <div className="h-3 w-3/4 rounded animate-pulse" style={{ background: "var(--bg-input)" }} />
+                        <div className="h-3 w-1/2 rounded animate-pulse" style={{ background: "var(--bg-input)" }} />
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{album.title}</div>
-                      <div className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{album.artist}</div>
-                    </div>
-                  </button>
-                ))}
+                    ))
+                  : albums.map((album) => (
+                      <button key={album.id} onClick={() => setSelectedAlbum(album)} className="flex flex-col gap-2 text-left group">
+                        <div className="aspect-square rounded-xl shadow-lg transition-transform group-hover:scale-105 relative overflow-hidden" style={{ background: album.color }}>
+                          {album.cover && <img src={album.cover} alt={album.title} className="w-full h-full object-cover" draggable={false} />}
+                          <div className="absolute bottom-2 right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.35)" }}>
+                            <Icon name="Play" size={13} className="text-white ml-0.5" />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{album.title}</div>
+                          <div className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{album.artist}</div>
+                        </div>
+                      </button>
+                    ))}
               </div>
             </div>
           )}
@@ -294,12 +367,18 @@ export default function Music() {
 
           <div className="h-14 flex items-center px-4 gap-4">
             <div className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: "var(--bg-input)" }}>
-              {currentAlbum?.cover && <img src={currentAlbum.cover} alt="" className="w-full h-full object-cover" draggable={false} />}
+              {selectedAlbum?.cover ? (
+                <img src={selectedAlbum.cover} alt="" className="w-full h-full object-cover" draggable={false} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>
+                  <Icon name="Music" size={16} />
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{currentSong?.title || "Not Playing"}</div>
               <div className="text-xs truncate flex gap-2" style={{ color: "var(--text-tertiary)" }}>
-                <span>{currentAlbum?.artist || "—"}</span>
+                <span>{selectedAlbum?.artist || (selectedPlaylist ? selectedPlaylist.name : "—")}</span>
                 <span>{currentSong ? formatTime(currentTime) : ""}</span>
                 <span>{currentSong ? formatTime(duration) : ""}</span>
               </div>
@@ -339,11 +418,13 @@ function TrackList({
   currentSongId,
   isPlaying,
   onPlay,
+  previewLoading,
 }: {
   songs: Song[];
   currentSongId: string | null;
   isPlaying: boolean;
   onPlay: (song: Song) => void;
+  previewLoading: string | null;
 }) {
   return (
     <div className="flex flex-col">
@@ -354,17 +435,20 @@ function TrackList({
       </div>
       {songs.map((song) => {
         const isCurrent = currentSongId === song.id;
+        const isLoading = previewLoading === song.id;
         return (
           <button
             key={song.id}
             onClick={() => onPlay(song)}
-            className="flex items-center px-3 py-2.5 transition-colors text-left group"
+            className="flex items-center px-3 py-2 transition-colors text-left group"
             style={{ background: isCurrent ? "var(--bg-hover)" : "transparent" }}
             onMouseEnter={(e) => { if (!isCurrent) e.currentTarget.style.background = "var(--bg-hover)"; }}
             onMouseLeave={(e) => { if (!isCurrent) e.currentTarget.style.background = "transparent"; }}
           >
             <span className="w-12 text-sm flex items-center gap-1.5" style={{ color: isCurrent ? "#fa2d48" : "var(--text-tertiary)" }}>
-              {isCurrent && isPlaying ? (
+              {isLoading ? (
+                <span className="w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: "var(--text-tertiary)", borderTopColor: "#fa2d48" }} />
+              ) : isCurrent && isPlaying ? (
                 <span className="flex gap-[2px] items-center">
                   <span className="w-[2.5px] h-3 bg-[#fa2d48] rounded-full animate-pulse" />
                   <span className="w-[2.5px] h-2 bg-[#fa2d48] rounded-full animate-pulse" style={{ animationDelay: "0.15s" }} />
@@ -374,7 +458,12 @@ function TrackList({
                 song.track
               )}
             </span>
-            <span className="flex-1 text-sm truncate pr-2" style={{ color: isCurrent ? "#fa2d48" : "var(--text-primary)" }}>{song.title}</span>
+            <span className="flex-1 flex flex-col min-w-0 pr-2">
+              <span className="text-sm truncate" style={{ color: isLoading ? "var(--text-tertiary)" : isCurrent ? "#fa2d48" : "var(--text-primary)" }}>{song.title}</span>
+              {song.artist && (
+                <span className="text-xs truncate mt-0.5" style={{ color: "var(--text-tertiary)" }}>{song.artist}</span>
+              )}
+            </span>
             <span className="w-16 text-right text-sm" style={{ color: "var(--text-tertiary)" }}>{song.duration}</span>
           </button>
         );

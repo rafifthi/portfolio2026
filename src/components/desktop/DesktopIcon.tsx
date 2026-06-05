@@ -13,12 +13,13 @@ interface DesktopIconProps {
   onOpen: () => void;
 }
 
-export default function DesktopIcon({ label, image, x, y, width, onOpen }: DesktopIconProps) {
+export default function DesktopIcon({ id, label, image, x, y, width, onOpen }: DesktopIconProps) {
   const ptr = useRef({ downTime: 0, dragged: false });
   const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
+      id={id}
       drag
       dragMomentum={false}
       initial={false}
