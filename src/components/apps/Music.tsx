@@ -27,6 +27,10 @@ export default function Music() {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
+  // Snapshot of what's actually playing, captured at play time so the
+  // now-playing bar (cover/title/artist) stays correct even after the user
+  // navigates to a different album or playlist.
+  const [nowPlaying, setNowPlaying] = useState<{ song: Song; cover: string; artist: string } | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.7);
@@ -37,7 +41,6 @@ export default function Music() {
   const playlistSongs = selectedPlaylist ? playlistData[selectedPlaylist.id]?.songs || [] : [];
   const tracks = selectedAlbum ? selectedAlbum.songs : playlistSongs;
   const playlistMeta = selectedPlaylist ? playlistData[selectedPlaylist.id] : undefined;
-  const currentSong = currentSongId ? tracks.find((s) => s.id === currentSongId) || null : null;
 
   // Fetch all albums on mount
   useEffect(() => {
@@ -142,6 +145,13 @@ export default function Music() {
   const playSong = useCallback(async (song: Song) => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    // Capture the source (album/playlist) cover + artist now, so the
+    // now-playing bar doesn't depend on what's currently being browsed.
+    const artist = selectedAlbum?.artist || song.artist || (selectedPlaylist?.name ?? "");
+    const cover = selectedAlbum?.cover || playlistMeta?.cover || "";
+    setNowPlaying({ song, cover, artist });
+
     setCurrentSongId(song.id);
     setDuration(0);
     setCurrentTime(0);
@@ -153,7 +163,6 @@ export default function Music() {
       return;
     }
 
-    const artist = selectedAlbum?.artist || "";
     if (!artist) return;
     setPreviewLoading(song.id);
     const previewUrl = await fetchPreview(artist, song.title);
@@ -164,7 +173,7 @@ export default function Music() {
       audio.currentTime = 0;
       audio.play().then(() => setIsPlaying(true)).catch(() => {});
     }
-  }, [selectedAlbum]);
+  }, [selectedAlbum, selectedPlaylist, playlistMeta]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -367,8 +376,8 @@ export default function Music() {
 
           <div className="h-14 flex items-center px-4 gap-4">
             <div className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: "var(--bg-input)" }}>
-              {selectedAlbum?.cover ? (
-                <img src={selectedAlbum.cover} alt="" className="w-full h-full object-cover" draggable={false} />
+              {nowPlaying?.cover ? (
+                <img src={nowPlaying.cover} alt="" className="w-full h-full object-cover" draggable={false} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>
                   <Icon name="Music" size={16} />
@@ -376,11 +385,11 @@ export default function Music() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{currentSong?.title || "Not Playing"}</div>
+              <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{nowPlaying?.song.title || "Not Playing"}</div>
               <div className="text-xs truncate flex gap-2" style={{ color: "var(--text-tertiary)" }}>
-                <span>{selectedAlbum?.artist || (selectedPlaylist ? selectedPlaylist.name : "—")}</span>
-                <span>{currentSong ? formatTime(currentTime) : ""}</span>
-                <span>{currentSong ? formatTime(duration) : ""}</span>
+                <span>{nowPlaying?.artist || "—"}</span>
+                <span>{nowPlaying ? formatTime(currentTime) : ""}</span>
+                <span>{nowPlaying ? formatTime(duration) : ""}</span>
               </div>
             </div>
 
