@@ -13,9 +13,11 @@ interface WindowProps {
   height: number;
   zIndex: number;
   isMinimized?: boolean;
+  isMaximized?: boolean;
   onFocus: () => void;
   onClose: () => void;
   onMinimize?: () => void;
+  onMaximize?: () => void;
   children: React.ReactNode;
   icon?: string;
 }
@@ -29,9 +31,11 @@ export default function Window({
   height,
   zIndex,
   isMinimized,
+  isMaximized,
   onFocus,
   onClose,
   onMinimize,
+  onMaximize,
   children,
   icon,
 }: WindowProps) {
@@ -56,14 +60,18 @@ export default function Window({
         dragMomentum={false}
         dragConstraints={constraintsRef}
         initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1, x: position.x, y: position.y }}
+        animate={
+          isMaximized
+            ? { opacity: 1, scale: 1, x: 0, y: 28 }
+            : { opacity: 1, scale: 1, x: position.x, y: position.y }
+        }
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ type: "spring", stiffness: 450, damping: 30, mass: 0.9 }}
         onPointerDown={onFocus}
         style={{
           position: "absolute",
-          width,
-          height,
+          width: isMaximized ? "100vw" : width,
+          height: isMaximized ? "calc(100vh - 28px)" : height,
           zIndex,
           left: 0,
           top: 0,
@@ -100,6 +108,10 @@ export default function Window({
               <Icon name="Minus" size={8} className="text-black/0 group-hover:text-black/60" />
             </button>
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMaximize?.();
+              }}
               className="w-3 h-3 rounded-full flex items-center justify-center group transition-colors"
               style={{ background: "#28c840" }}
             >
