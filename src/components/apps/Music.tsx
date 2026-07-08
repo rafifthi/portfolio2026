@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { albumIds, albumColor, playlists } from "@/lib/data";
 import { Album, Song, Playlist } from "@/lib/types";
 import { fetchAlbumById, fetchPreview, fetchPlaylistById } from "@/lib/deezer";
+import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
 
 function formatTime(s: number) {
   if (isNaN(s) || !isFinite(s)) return "0:00";
@@ -13,8 +14,11 @@ function formatTime(s: number) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-export default function Music() {
+export default function Music({ isMobile = false }: { isMobile?: boolean }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Mobile-only navigation: which root section is open (ignored on desktop)
+  const [mobileSection, setMobileSection] = useState<"library" | "albums">("library");
 
   // Albums fetched on mount
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -213,6 +217,181 @@ export default function Music() {
   );
 
   const noRepeatCycle: Record<string, "off" | "one" | "all"> = { off: "all", all: "one", one: "off" };
+
+  // ── iOS layout (mobile): Library root page → drill-down, mini-player pinned ──
+  if (isMobile) {
+    const page = selectedAlbum
+      ? { key: `album-${selectedAlbum.id}`, depth: 2 }
+      : selectedPlaylist
+      ? { key: `playlist-${selectedPlaylist.id}`, depth: 1 }
+      : mobileSection === "albums"
+      ? { key: "albums", depth: 1 }
+      : { key: "library", depth: 0 };
+
+    return (
+      <div className="h-full flex flex-col min-h-0 transition-colors duration-300" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+        <MobileStack pageKey={page.key} depth={page.depth}>
+          {selectedAlbum ? (
+            <>
+              <MobileBackHeader
+                label="Albums"
+                onBack={() => { setSelectedAlbum(null); setMobileSection("albums"); }}
+              />
+              <div className="flex-1 overflow-auto overscroll-contain">
+                <div className="flex flex-col items-center px-6 pt-6 pb-4 text-center">
+                  <div className="w-44 h-44 rounded-xl shadow-2xl overflow-hidden" style={{ background: selectedAlbum.color }}>
+                    {selectedAlbum.cover && <img src={selectedAlbum.cover} alt={selectedAlbum.title} className="w-full h-full object-cover" draggable={false} />}
+                  </div>
+                  <h2 className="text-xl font-bold mt-4" style={{ color: "var(--text-primary)" }}>{selectedAlbum.title}</h2>
+                  <div className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{selectedAlbum.artist} &middot; {selectedAlbum.year}</div>
+                </div>
+                <div className="px-3 pb-4">
+                  <TrackList
+                    songs={tracks}
+                    currentSongId={currentSongId}
+                    isPlaying={isPlaying}
+                    onPlay={playPauseCurrent}
+                    previewLoading={previewLoading}
+                  />
+                </div>
+              </div>
+            </>
+          ) : selectedPlaylist ? (
+            <>
+              <MobileBackHeader label="Library" onBack={() => setSelectedPlaylist(null)} />
+              <div className="flex-1 overflow-auto overscroll-contain">
+                <div className="flex flex-col items-center px-6 pt-6 pb-4 text-center">
+                  <div className="w-44 h-44 rounded-xl shadow-2xl overflow-hidden" style={{ background: selectedPlaylist.color }}>
+                    {playlistMeta?.cover ? (
+                      <img src={playlistMeta.cover} alt="" className="w-full h-full object-cover" draggable={false} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Icon name={selectedPlaylist.icon} size={48} className="text-white/80" />
+                      </div>
+                    )}
+                  </div>
+                  <h2 className="text-xl font-bold mt-4" style={{ color: "var(--text-primary)" }}>{playlistMeta?.title || selectedPlaylist.name}</h2>
+                  <div className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>{playlistMeta?.songs?.length || 0} tracks</div>
+                </div>
+                <div className="px-3 pb-4">
+                  {loadingPlaylist === selectedPlaylist.id ? (
+                    <div className="flex items-center gap-2 py-12 justify-center" style={{ color: "var(--text-tertiary)" }}>
+                      <span className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: "var(--text-tertiary)", borderTopColor: "#fa2d48" }} />
+                      <span className="text-sm">Loading tracks...</span>
+                    </div>
+                  ) : tracks.length > 0 ? (
+                    <TrackList
+                      songs={tracks}
+                      currentSongId={currentSongId}
+                      isPlaying={isPlaying}
+                      onPlay={playPauseCurrent}
+                      previewLoading={previewLoading}
+                    />
+                  ) : (
+                    <div className="py-12 text-center text-sm" style={{ color: "var(--text-tertiary)" }}>
+                      No tracks found for this playlist.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : mobileSection === "albums" ? (
+            <>
+              <MobileBackHeader label="Library" onBack={() => setMobileSection("library")} />
+              <div className="flex-1 overflow-auto overscroll-contain p-4">
+                <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>Albums</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {loadingAlbums
+                    ? Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="flex flex-col gap-2">
+                          <div className="aspect-square rounded-xl animate-pulse" style={{ background: "var(--bg-input)" }} />
+                          <div className="h-3 w-3/4 rounded animate-pulse" style={{ background: "var(--bg-input)" }} />
+                          <div className="h-3 w-1/2 rounded animate-pulse" style={{ background: "var(--bg-input)" }} />
+                        </div>
+                      ))
+                    : albums.map((album) => (
+                        <button key={album.id} onClick={() => setSelectedAlbum(album)} className="flex flex-col gap-2 text-left">
+                          <div className="aspect-square rounded-xl shadow-lg relative overflow-hidden" style={{ background: album.color }}>
+                            {album.cover && <img src={album.cover} alt={album.title} className="w-full h-full object-cover" draggable={false} />}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{album.title}</div>
+                            <div className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>{album.artist}</div>
+                          </div>
+                        </button>
+                      ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 overflow-auto overscroll-contain">
+              <div className="px-4 pt-4 pb-2">
+                <h2 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Library</h2>
+              </div>
+              <button
+                onClick={() => setMobileSection("albums")}
+                className="w-full flex items-center gap-3 px-4 py-3 border-b text-left"
+                style={{ borderColor: "var(--border-subtle)" }}
+              >
+                <Icon name="Disc" size={22} style={{ color: "#fa2d48" }} />
+                <span className="flex-1 text-[16px]" style={{ color: "var(--text-primary)" }}>Albums</span>
+                <Icon name="ChevronRight" size={18} style={{ color: "var(--text-tertiary)" }} />
+              </button>
+              {playlists.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlaylist(p)}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-b text-left"
+                  style={{ borderColor: "var(--border-subtle)" }}
+                >
+                  <Icon name={p.icon} size={22} style={{ color: "#fa2d48" }} />
+                  <span className="flex-1 text-[16px]" style={{ color: "var(--text-primary)" }}>{p.name}</span>
+                  <Icon name="ChevronRight" size={18} style={{ color: "var(--text-tertiary)" }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </MobileStack>
+
+        {/* Mini-player — pinned below the page stack, iOS style */}
+        <div className="flex-shrink-0 border-t transition-colors duration-300" style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-subtle)" }}>
+          <div className="px-4 pt-1.5">
+            <input
+              type="range" min={0} max={duration || 1} value={currentTime} onChange={handleSeek}
+              className="w-full h-1 appearance-none cursor-pointer rounded-full"
+              style={{ background: `linear-gradient(to right, #fa2d48 ${((currentTime || 0) / (duration || 1)) * 100}%, var(--bg-input) ${((currentTime || 0) / (duration || 1)) * 100}%)` }}
+            />
+          </div>
+          <div className="h-14 flex items-center px-4 gap-3">
+            <div className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: "var(--bg-input)" }}>
+              {nowPlaying?.cover ? (
+                <img src={nowPlaying.cover} alt="" className="w-full h-full object-cover" draggable={false} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>
+                  <Icon name="Music" size={16} />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{nowPlaying?.song.title || "Not Playing"}</div>
+              <div className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>{nowPlaying?.artist || "—"}</div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={handlePrev} className="min-w-10 min-h-10 flex items-center justify-center" style={{ color: "var(--text-secondary)" }}>
+                <Icon name="SkipBack" size={20} />
+              </button>
+              <button onClick={togglePlay} className="min-w-10 min-h-10 flex items-center justify-center" style={{ color: "var(--text-primary)" }}>
+                <Icon name={isPlaying ? "Pause" : "Play"} size={24} className={isPlaying ? "" : "ml-0.5"} />
+              </button>
+              <button onClick={handleNext} className="min-w-10 min-h-10 flex items-center justify-center" style={{ color: "var(--text-secondary)" }}>
+                <Icon name="SkipForward" size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex transition-colors duration-300" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>

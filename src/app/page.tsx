@@ -463,6 +463,7 @@ export default function Home() {
                 onClose={() => closeWindow(win.id)}
                 onOpenApp={openApp}
                 isMaximized={win.isMaximized}
+                isMobile={isMobile}
               />
             </Window>
           );
