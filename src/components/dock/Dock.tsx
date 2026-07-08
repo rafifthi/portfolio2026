@@ -16,7 +16,7 @@ interface DockItemDef {
 interface DockProps {
   items: DockItemDef[];
   onOpenApp: (appId: string) => void;
-  isVertical?: boolean;
+  isMobile?: boolean;
   theme?: "dark" | "light";
 }
 
@@ -39,8 +39,8 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
   return map[id] || null;
 }
 
-function DockIcon({ item, isVertical, theme }: { item: DockItemDef; isVertical: boolean; theme: "dark" | "light" }) {
-  const size = isVertical ? 44 : 52;
+function DockIcon({ item, isMobile, theme }: { item: DockItemDef; isMobile: boolean; theme: "dark" | "light" }) {
+  const size = isMobile ? 48 : 52;
   const src = getDockIconSrc(item.id, theme);
 
   if (src) {
@@ -75,12 +75,12 @@ function DockIcon({ item, isVertical, theme }: { item: DockItemDef; isVertical: 
 function DockItemComponent({
   item,
   onOpen,
-  isVertical,
+  isMobile,
   theme,
 }: {
   item: DockItemDef;
   onOpen: () => void;
-  isVertical: boolean;
+  isMobile: boolean;
   theme: "dark" | "light";
 }) {
   const [hovered, setHovered] = useState(false);
@@ -89,11 +89,11 @@ function DockItemComponent({
   if (item.isSeparator) {
     return (
       <div
-        className="rounded-full transition-colors duration-300"
+        className="rounded-full transition-colors duration-300 flex-shrink-0"
         style={{
-          width: isVertical ? 28 : 1,
-          height: isVertical ? 1 : 28,
-          margin: isVertical ? "0 4px" : "4px 0",
+          width: 1,
+          height: 28,
+          margin: "4px 0",
           background: "var(--border-hover)",
         }}
       />
@@ -112,32 +112,27 @@ function DockItemComponent({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
-      className={`relative flex items-center justify-center ${
-        bouncing ? "dock-bounce" : ""
+      className={`relative flex items-center justify-center flex-shrink-0 ${
+        bouncing && !isMobile ? "dock-bounce" : ""
       }`}
-      whileHover={{ scale: 1.15, y: isVertical ? 0 : -10 }}
+      whileHover={isMobile ? undefined : { scale: 1.15, y: -10 }}
+      whileTap={isMobile ? { scale: 0.85 } : undefined}
       transition={{ type: "spring", stiffness: 300, damping: 15 }}
     >
-      <DockIcon item={item} isVertical={isVertical} theme={theme} />
+      <DockIcon item={item} isMobile={isMobile} theme={theme} />
 
       {item.isOpen && (
         <div
-          className={`absolute rounded-full bg-white/70 ${
-            isVertical
-              ? "right-0 top-1/2 -translate-y-1/2 w-1 h-1"
-              : "bottom-0 left-1/2 -translate-x-1/2 w-1 h-1"
-          }`}
+          className="absolute rounded-full bg-white/70 bottom-0 left-1/2 -translate-x-1/2 w-1 h-1"
         />
       )}
 
-      {hovered && (
+      {hovered && !isMobile && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: isVertical ? 0 : 4 }}
+          initial={{ opacity: 0, scale: 0.92, y: 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
-          className={`absolute px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-50 shadow-lg text-xs ${
-            isVertical ? "left-full ml-2" : "bottom-full mb-2"
-          }`}
+          className="absolute px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-50 shadow-lg text-xs bottom-full mb-2"
           style={{
             background: "var(--bg-window)",
             color: "var(--text-primary)",
@@ -152,25 +147,36 @@ function DockItemComponent({
   );
 }
 
-export default function Dock({ items, onOpenApp, isVertical, theme = "dark" }: DockProps) {
+export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark" }: DockProps) {
+  // iOS docks have no separators
+  const visibleItems = isMobile ? items.filter((i) => !i.isSeparator) : items;
+
   return (
     <div
       id="tour-dock"
-      className={`dock-glass flex items-center ${
-        isVertical
-          ? "flex-col py-3 px-2 rounded-2xl fixed left-3 top-1/2 -translate-y-1/2 z-50 gap-2.5"
-          : "flex-row px-3 py-2.5 rounded-2xl fixed bottom-4 left-1/2 -translate-x-1/2 z-50 gap-2.5"
+      className={`dock-glass fixed z-50 ${
+        isMobile
+          ? "bottom-0 left-0 right-0 px-3 pt-2.5 rounded-t-3xl overflow-x-auto no-scrollbar"
+          : "bottom-4 left-1/2 -translate-x-1/2 px-3 py-2.5 rounded-2xl"
       }`}
+      style={
+        isMobile
+          ? { paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom))" }
+          : undefined
+      }
     >
-      {items.map((item) => (
-        <DockItemComponent
-          key={item.id}
-          item={item}
-          onOpen={() => onOpenApp(item.id)}
-          isVertical={isVertical || false}
-          theme={theme}
-        />
-      ))}
+      {/* w-max + mx-auto centers the icons when they fit, scrolls when they don't */}
+      <div className={`flex items-center ${isMobile ? "gap-3 w-max mx-auto" : "gap-2.5"}`}>
+        {visibleItems.map((item) => (
+          <DockItemComponent
+            key={item.id}
+            item={item}
+            onOpen={() => onOpenApp(item.id)}
+            isMobile={isMobile}
+            theme={theme}
+          />
+        ))}
+      </div>
     </div>
   );
 }

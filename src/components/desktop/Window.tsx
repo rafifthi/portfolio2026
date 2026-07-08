@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useDragControls } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 
@@ -20,6 +20,8 @@ interface WindowProps {
   onMaximize?: () => void;
   children: React.ReactNode;
   icon?: string;
+  isMobile?: boolean;
+  isTop?: boolean;
 }
 
 export default function Window({
@@ -38,20 +40,110 @@ export default function Window({
   onMaximize,
   children,
   icon,
+  isMobile = false,
+  isTop = true,
 }: WindowProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x, y });
+  const dragControls = useDragControls();
 
   useEffect(() => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const TOPBAR_H = 28; // h-7 desktop menu bar
-    const safeX = Math.min(Math.max(x, 0), Math.max(vw - width - 20, 0));
-    const safeY = Math.max(Math.min(y, Math.max(vh - height - 80, TOPBAR_H)), TOPBAR_H);
-    setPosition({ x: safeX, y: safeY });
+    const clamp = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const TOPBAR_H = 28; // h-7 desktop menu bar
+      const safeX = Math.min(Math.max(x, 0), Math.max(vw - width - 20, 0));
+      const safeY = Math.max(Math.min(y, Math.max(vh - height - 80, TOPBAR_H)), TOPBAR_H);
+      setPosition({ x: safeX, y: safeY });
+    };
+    clamp();
+    window.addEventListener("resize", clamp);
+    return () => window.removeEventListener("resize", clamp);
   }, [x, y, width, height]);
 
   if (isMinimized) return null;
+
+  // ── iOS bottom sheet (mobile) ──────────────────────────────
+  // The dim backdrop is rendered once by page.tsx (shared across sheets).
+  if (isMobile) {
+    return (
+        <motion.div
+          drag="y"
+          dragListener={false}
+          dragControls={dragControls}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.5 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 120 || info.velocity.y > 600) onClose();
+          }}
+          onPointerDown={onFocus}
+          initial={{ y: "100%" }}
+          animate={
+            isTop
+              ? { y: 0, scale: 1, opacity: 1 }
+              : { y: -10, scale: 0.96, opacity: 0.85 }
+          }
+          exit={{ y: "100%" }}
+          transition={{ type: "spring", stiffness: 400, damping: 42, mass: 0.9 }}
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex,
+            height: "92dvh", // iOS "large detent" — uniform sheet height
+
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}
+          className="window-glass rounded-t-[28px] overflow-hidden flex flex-col"
+        >
+          {/* Grabber + iOS nav bar act as the drag handle */}
+          <div
+            onPointerDown={(e) => dragControls.start(e)}
+            className="flex-shrink-0"
+          >
+            <div className="pt-2.5 pb-1 flex justify-center">
+              <div
+                className="w-9 h-1 rounded-full"
+                style={{ background: "var(--text-tertiary)" }}
+              />
+            </div>
+
+            <div
+              className="flex items-center justify-between px-4 h-12 border-b"
+              style={{
+                background: "var(--bg-titlebar)",
+                borderColor: "var(--border-subtle)",
+              }}
+            >
+              <button
+                onClick={onClose}
+                className="text-[17px] font-medium min-w-12 min-h-11 -ml-1 flex items-center"
+                style={{ color: "var(--accent)" }}
+              >
+                Done
+              </button>
+              <div
+                className="flex-1 text-center text-[17px] font-semibold truncate px-2 flex items-center justify-center gap-1.5"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {icon && <Icon name={icon} size={15} />}
+                <span>{title}</span>
+              </div>
+              <div className="w-12 flex-shrink-0" />
+            </div>
+          </div>
+
+          {/* Content — natively scrollable */}
+          <div
+            className="flex-1 overflow-auto overscroll-contain relative"
+            style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
+          >
+            {children}
+          </div>
+        </motion.div>
+    );
+  }
 
   return (
     <>
@@ -72,6 +164,7 @@ export default function Window({
           position: "absolute",
           width: isMaximized ? "100vw" : width,
           height: isMaximized ? "calc(100vh - 28px)" : height,
+          maxWidth: isMaximized ? undefined : "calc(100vw - 24px)",
           zIndex,
           left: 0,
           top: 0,

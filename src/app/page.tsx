@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
 import Window from "@/components/desktop/Window";
 import DesktopIcon from "@/components/desktop/DesktopIcon";
@@ -80,9 +80,10 @@ export default function Home() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
+    const mq = window.matchMedia("(max-width: 767px)");
+    const syncMobile = () => setIsMobile(mq.matches);
+    syncMobile();
+    mq.addEventListener("change", syncMobile);
 
     const updateTime = () => {
       const now = new Date();
@@ -93,7 +94,7 @@ export default function Home() {
     const interval = setInterval(updateTime, 1000);
 
     return () => {
-      window.removeEventListener("resize", checkMobile);
+      mq.removeEventListener("change", syncMobile);
       clearInterval(interval);
     };
   }, []);
@@ -126,8 +127,10 @@ export default function Home() {
       const config = APP_CONFIGS[appId];
       if (!config) return;
 
-      const width = isMobile ? window.innerWidth - 20 : config.width;
-      const height = isMobile ? window.innerHeight - 100 : config.height;
+      // Always store desktop geometry — the mobile sheet ignores x/y/w/h,
+      // so windows opened on mobile still restore correctly on desktop.
+      const width = config.width;
+      const height = config.height;
 
       const TOPBAR_H = 28;
       const centerX = Math.max(20, (window.innerWidth - width) / 2);
@@ -174,7 +177,7 @@ export default function Home() {
       setWindows((prev) => [...prev, newWindow]);
       setNextZIndex((z) => z + 1);
     },
-    [windows, nextZIndex, isMobile, focusWindow]
+    [windows, nextZIndex, focusWindow]
   );
 
   const closeWindow = useCallback((id: string) => {
@@ -213,6 +216,58 @@ export default function Home() {
 
   const isDark = theme === "dark";
 
+  const MENU_ITEMS = [
+    {
+      id: "rafif",
+      label: "rafifthi",
+      items: [
+        { label: "About Rafif", action: () => openApp("readme") },
+        { label: "Contact", action: () => openApp("mail") },
+        { separator: true },
+        { label: "Settings", action: () => openApp("settings"), shortcut: "⌘," },
+      ],
+    },
+    {
+      id: "file",
+      label: "File",
+      items: [{ label: "Download CV", action: () => {} }],
+    },
+    {
+      id: "help",
+      label: "Help",
+      items: [
+        { label: "Start Tour", action: () => { (window as any).__restartTour?.(); } },
+        { separator: true },
+        { label: "Keyboard Shortcuts", disabled: true },
+      ],
+    },
+  ];
+
+  const toDropdownItems = (
+    items: { label?: string; action?: () => void; disabled?: boolean; separator?: boolean; shortcut?: string }[]
+  ) =>
+    items.map((item) => ({
+      label: item.label,
+      onClick: item.action,
+      disabled: item.disabled,
+      separator: item.separator,
+      shortcut: item.shortcut,
+    }));
+
+  const logoSrc =
+    wallpaper === "/wallpaper/wallpaper-1.png"
+      ? "/logo/blue-logo.svg"
+      : wallpaper === "/wallpaper/wallpaper-3.png"
+      ? "/logo/green-logo.svg"
+      : theme === "light"
+      ? "/logo/neutral-light-logo.svg"
+      : "/logo/neutral-dark-logo.svg";
+
+  const visibleWindows = windows.filter((w) => !w.isMinimized);
+  const topWindow = visibleWindows.length
+    ? visibleWindows.reduce((a, b) => (a.zIndex > b.zIndex ? a : b))
+    : null;
+
   return (
     <div
       className={`h-full w-full relative overflow-hidden${wallpaper ? "" : " desktop-bg"}`}
@@ -222,134 +277,160 @@ export default function Home() {
           : undefined
       }
     >
-      {/* Menu Bar */}
+      {/* Menu Bar — macOS menu bar on desktop, iOS status bar on mobile */}
       <div
-        className="h-7 backdrop-blur-xl border-b flex items-center px-3 text-xs fixed top-0 left-0 right-0 z-[9999] transition-colors duration-300"
+        className={`backdrop-blur-xl border-b flex items-center fixed top-0 left-0 right-0 z-[9999] transition-colors duration-300 ${
+          isMobile ? "px-5" : "h-7 px-3 text-xs"
+        }`}
         style={{
           background: "var(--menubar-bg)",
           borderColor: "var(--border-subtle)",
           color: "var(--menubar-text)",
+          ...(isMobile
+            ? {
+                height: "calc(2.75rem + env(safe-area-inset-top))",
+                paddingTop: "env(safe-area-inset-top)",
+              }
+            : undefined),
         }}
       >
-        {/* Logo */}
-        <img
-          src={
-            wallpaper === "/wallpaper/wallpaper-1.png"
-              ? "/logo/blue-logo.svg"
-              : wallpaper === "/wallpaper/wallpaper-3.png"
-              ? "/logo/green-logo.svg"
-              : theme === "light"
-              ? "/logo/neutral-light-logo.svg"
-              : "/logo/neutral-dark-logo.svg"
-          }
-          alt="Logo"
-          className="w-4 h-4 flex-shrink-0 mr-2"
-          draggable={false}
-        />
+        {isMobile ? (
+          <>
+            {/* iOS status bar: time left, logo (menu) + theme right */}
+            <span className="text-[15px] font-semibold tracking-tight opacity-95">
+              {time}
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenu(activeMenu === "rafif" ? null : "rafif");
+              }}
+              className="flex items-center justify-center min-w-11 min-h-11"
+              aria-label="Open menu"
+            >
+              <img src={logoSrc} alt="Logo" className="w-5 h-5" draggable={false} />
+            </button>
+            <button
+              id="tour-theme-toggle"
+              onClick={(e) => { e.stopPropagation(); toggle(); }}
+              className="flex items-center justify-center min-w-11 min-h-11 -mr-2"
+              title="Toggle theme"
+            >
+              <Icon name={isDark ? "Moon" : "Sun"} size={16} />
+            </button>
+            <AnimatePresence>
+              {activeMenu === "rafif" && (
+                <MenuDropdown
+                  items={toDropdownItems(MENU_ITEMS[0].items)}
+                  onClose={() => setActiveMenu(null)}
+                  isMobile
+                />
+              )}
+            </AnimatePresence>
+          </>
+        ) : (
+          <>
+            {/* Logo */}
+            <img
+              src={logoSrc}
+              alt="Logo"
+              className="w-4 h-4 flex-shrink-0 mr-2"
+              draggable={false}
+            />
 
-        {/* Menu items */}
-        <div className="flex items-center gap-0.5">
-          {[
-            {
-              id: "rafif",
-              label: "rafifthi",
-              items: [
-                { label: "About Rafif", action: () => openApp("readme") },
-                { label: "Contact", action: () => openApp("mail") },
-                { separator: true },
-                { label: "Settings", action: () => openApp("settings"), shortcut: "⌘," },
-              ],
-            },
-            {
-              id: "file",
-              label: "File",
-              items: [
-                { label: "Download CV", action: () => {} },
-              ],
-            },
-            {
-              id: "help",
-              label: "Help",
-              items: [
-                { label: "Start Tour", action: () => { (window as any).__restartTour?.(); } },
-                { separator: true },
-                { label: "Keyboard Shortcuts", disabled: true },
-              ],
-            },
-          ].map((menu) => (
-            <div key={menu.id} className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (menu.items) {
-                    setActiveMenu(activeMenu === menu.id ? null : menu.id);
-                  }
-                }}
-                className={`px-2 py-0.5 rounded transition-colors duration-150 ${
-                  menu.id === "rafif" ? "font-bold" : "font-normal"
-                }`}
-                style={{
-                  background: activeMenu === menu.id ? "var(--bg-hover)" : "transparent",
-                  color: "var(--menubar-text)",
-                }}
-                onMouseEnter={(e) => {
-                  if (activeMenu !== menu.id) e.currentTarget.style.background = "var(--bg-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  if (activeMenu !== menu.id) e.currentTarget.style.background = "transparent";
-                }}
-              >
-                {menu.label}
-              </button>
+            {/* Menu items */}
+            <div className="flex items-center gap-0.5">
+              {MENU_ITEMS.map((menu) => (
+                <div key={menu.id} className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (menu.items) {
+                        setActiveMenu(activeMenu === menu.id ? null : menu.id);
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded transition-colors duration-150 ${
+                      menu.id === "rafif" ? "font-bold" : "font-normal"
+                    }`}
+                    style={{
+                      background: activeMenu === menu.id ? "var(--bg-hover)" : "transparent",
+                      color: "var(--menubar-text)",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeMenu !== menu.id) e.currentTarget.style.background = "var(--bg-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeMenu !== menu.id) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    {menu.label}
+                  </button>
 
-              <AnimatePresence>
-                {activeMenu === menu.id && menu.items && (
-                  <MenuDropdown
-                    items={menu.items.map((item: any) => ({
-                      label: item.label,
-                      onClick: item.action,
-                      disabled: item.disabled,
-                      separator: item.separator,
-                      shortcut: item.shortcut,
-                    }))}
-                    onClose={() => setActiveMenu(null)}
-                  />
-                )}
-              </AnimatePresence>
+                  <AnimatePresence>
+                    {activeMenu === menu.id && menu.items && (
+                      <MenuDropdown
+                        items={toDropdownItems(menu.items)}
+                        onClose={() => setActiveMenu(null)}
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="flex-1" />
-        <div className="flex items-center gap-3" style={{ color: "var(--menubar-text)" }}>
-          <button
-            id="tour-theme-toggle"
-            onClick={(e) => { e.stopPropagation(); toggle(); }}
-            className="hover:opacity-80 transition-opacity"
-            title="Toggle theme"
-          >
-            <Icon name={isDark ? "Moon" : "Sun"} size={13} />
-          </button>
-          <span className="hidden sm:inline opacity-80">{date}</span>
-          <span className="opacity-90">{time}</span>
-        </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-3" style={{ color: "var(--menubar-text)" }}>
+              <button
+                id="tour-theme-toggle"
+                onClick={(e) => { e.stopPropagation(); toggle(); }}
+                className="hover:opacity-80 transition-opacity"
+                title="Toggle theme"
+              >
+                <Icon name={isDark ? "Moon" : "Sun"} size={13} />
+              </button>
+              <span className="hidden sm:inline opacity-80">{date}</span>
+              <span className="opacity-90">{time}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Desktop Icons */}
-      <div id="tour-desktop-area" className="absolute inset-0 pt-8 pb-20 px-4">
-        {desktopItems.map((item) => (
+      <div
+        id="tour-desktop-area"
+        className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
+      >
+        {desktopItems.map((item, i) => (
           <DesktopIcon
             key={item.id}
             id={item.id}
             label={item.label}
             image={item.image}
-            x={isMobile ? 10 : item.x}
-            y={isMobile ? item.y * 0.5 + 8 : item.y}
-            width={isMobile ? 100 : item.width}
+            x={isMobile ? (i % 2 === 0 ? 8 : 56) : item.x}
+            y={isMobile ? Math.floor(i / 2) * 17 + 10 : item.y}
+            width={isMobile ? 96 : item.width}
             onOpen={() => openApp(item.appId)}
+            disableDrag={isMobile}
+            compact={isMobile}
           />
         ))}
       </div>
+
+      {/* Shared sheet backdrop (mobile) — single dim layer under all sheets */}
+      <AnimatePresence>
+        {isMobile && topWindow && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => closeWindow(topWindow.id)}
+            className="fixed inset-0 bg-black/40"
+            style={{ zIndex: 90 }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Windows */}
       <AnimatePresence>
@@ -374,6 +455,8 @@ export default function Home() {
               onMinimize={() => minimizeWindow(win.id)}
               onMaximize={() => maximizeWindow(win.id)}
               icon={config.icon}
+              isMobile={isMobile}
+              isTop={topWindow?.id === win.id}
             >
               <AppComponent
                 windowId={win.id}
@@ -393,7 +476,7 @@ export default function Home() {
       <Dock
         items={dockItemsWithState}
         onOpenApp={openApp}
-        isVertical={isMobile}
+        isMobile={isMobile}
         theme={theme}
       />
 

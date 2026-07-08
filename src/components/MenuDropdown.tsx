@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 
 export interface MenuItem {
@@ -14,9 +15,10 @@ export interface MenuItem {
 interface MenuDropdownProps {
   items: MenuItem[];
   onClose: () => void;
+  isMobile?: boolean;
 }
 
-export default function MenuDropdown({ items, onClose }: MenuDropdownProps) {
+export default function MenuDropdown({ items, onClose, isMobile = false }: MenuDropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,6 +34,84 @@ export default function MenuDropdown({ items, onClose }: MenuDropdownProps) {
       document.removeEventListener("mousedown", handler);
     };
   }, [onClose]);
+
+  // ── iOS action sheet (mobile) ─────────────────────────────
+  // Portaled to <body>: the menu bar's backdrop-filter creates a containing
+  // block that would otherwise trap this position:fixed sheet inside the bar.
+  if (isMobile) {
+    const visibleItems = items.filter((it) => !it.separator);
+    return createPortal(
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onClose}
+          className="fixed inset-0 z-[10000] bg-black/40"
+        >
+          <motion.div
+            ref={ref}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.4 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 500) onClose();
+            }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 400, damping: 42, mass: 0.9 }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingBottom: "env(safe-area-inset-bottom)",
+            }}
+            className="px-2 pb-2 flex flex-col gap-2"
+          >
+            {/* Action group */}
+            <div
+              className="rounded-2xl overflow-hidden window-glass"
+              style={{ boxShadow: "var(--dropdown-shadow)" }}
+            >
+              {visibleItems.map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    if (!item.disabled && item.onClick) item.onClick();
+                    onClose();
+                  }}
+                  disabled={item.disabled}
+                  className="w-full text-center py-3 text-[17px] font-medium flex flex-col items-center justify-center min-h-[44px]"
+                  style={{
+                    color: item.disabled ? "var(--text-tertiary)" : "var(--accent)",
+                    opacity: item.disabled ? 0.4 : 1,
+                    cursor: item.disabled ? "default" : "pointer",
+                    borderTop:
+                      i === 0 ? "none" : "0.5px solid var(--border-subtle)",
+                  }}
+                >
+                  {/* Keyboard shortcuts are desktop-only affordances */}
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Cancel */}
+            <button
+              onClick={onClose}
+              className="w-full text-center py-3 text-[17px] font-semibold rounded-2xl min-h-[44px] window-glass"
+              style={{ color: "var(--accent)", boxShadow: "var(--dropdown-shadow)" }}
+            >
+              Cancel
+            </button>
+          </motion.div>
+        </motion.div>,
+      document.body
+    );
+  }
 
   return (
     <motion.div

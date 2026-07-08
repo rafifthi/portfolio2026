@@ -222,3 +222,12 @@ body {
 .dock-bounce {
   animation: bounce-dock 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* Hide scrollbar (mobile dock horizontal scroll) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
