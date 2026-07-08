@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
 import Window from "@/components/desktop/Window";
@@ -22,15 +22,34 @@ import CaseViewer from "@/components/apps/CaseViewer";
 import MenuDropdown from "@/components/MenuDropdown";
 import Onboarding from "@/components/Onboarding";
 import Settings from "@/components/apps/Settings";
+import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { WindowState } from "@/lib/types";
+import { CmsEntry, PortfolioEntryData } from "@/lib/cms";
 
 import LumonaMDX, { metadata as lumonaMetadata } from "@content/cases/lumona.mdx";
 import TDNMDX, { metadata as tdnMetadata } from "@content/cases/tdn.mdx";
 import InvitationMDX, { metadata as invitationMetadata } from "@content/cases/invitation.mdx";
 
-const APP_CONFIGS: Record<string, { title: string; icon: string; color: string; width: number; height: number; component: React.FC<any> }> = {
+interface AppComponentProps {
+  windowId: string;
+  onClose: () => void;
+  onOpenApp: (appId: string) => void;
+  isMaximized?: boolean;
+  isMobile?: boolean;
+}
+
+interface AppConfig {
+  title: string;
+  icon: string;
+  color: string;
+  width: number;
+  height: number;
+  component: React.ComponentType<AppComponentProps>;
+}
+
+const APP_CONFIGS: Record<string, AppConfig> = {
   // Desktop items
   readme: { title: "README.txt", icon: "FileText", color: "#6b7280", width: 520, height: 640, component: Readme },
   wife: { title: "wife", icon: "Heart", color: "#ec4899", width: 520, height: 640, component: Wife },
@@ -78,6 +97,7 @@ export default function Home() {
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [portfolioEntries, setPortfolioEntries] = useState<CmsEntry<PortfolioEntryData>[]>([]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -98,6 +118,65 @@ export default function Home() {
       clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/content?type=portfolio")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { entries?: CmsEntry<PortfolioEntryData>[] } | null) => {
+        if (!cancelled && payload?.entries?.length) {
+          setPortfolioEntries(payload.entries);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const cmsDesktopItems = useMemo(
+    () =>
+      portfolioEntries.map((entry, index) => {
+        const desktop = entry.data.desktop;
+        return {
+          id: `cms-desktop-${entry.id}`,
+          label: desktop?.label || entry.title,
+          image: desktop?.image || entry.data.banner || "/window.svg",
+          x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
+          y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
+          width: Number.isFinite(desktop?.width) ? desktop.width : 170,
+          appId: `cms-portfolio:${entry.id}`,
+        };
+      }),
+    [portfolioEntries]
+  );
+
+  const allDesktopItems = useMemo(
+    () => [...desktopItems, ...cmsDesktopItems],
+    [cmsDesktopItems]
+  );
+
+  const getAppConfig = useCallback(
+    (appId: string) => {
+      if (appId.startsWith("cms-portfolio:")) {
+        const entryId = appId.replace("cms-portfolio:", "");
+        const entry = portfolioEntries.find((item) => item.id === entryId);
+        if (!entry) return null;
+        const desktop = entry.data.desktop;
+        return {
+          title: entry.data.title || entry.title,
+          icon: desktop?.icon || "BriefcaseBusiness",
+          color: desktop?.color || "#3b82f6",
+          width: 720,
+          height: 640,
+          component: () => <StructuredCaseViewer entry={entry} />,
+        };
+      }
+
+      return APP_CONFIGS[appId] || null;
+    },
+    [portfolioEntries]
+  );
 
   const focusWindow = useCallback(
     (id: string) => {
@@ -124,7 +203,7 @@ export default function Home() {
         return;
       }
 
-      const config = APP_CONFIGS[appId];
+      const config = getAppConfig(appId);
       if (!config) return;
 
       // Always store desktop geometry — the mobile sheet ignores x/y/w/h,
@@ -177,7 +256,7 @@ export default function Home() {
       setWindows((prev) => [...prev, newWindow]);
       setNextZIndex((z) => z + 1);
     },
-    [windows, nextZIndex, focusWindow]
+    [windows, nextZIndex, focusWindow, getAppConfig]
   );
 
   const closeWindow = useCallback((id: string) => {
@@ -236,7 +315,7 @@ export default function Home() {
       id: "help",
       label: "Help",
       items: [
-        { label: "Start Tour", action: () => { (window as any).__restartTour?.(); } },
+        { label: "Start Tour", action: () => { (window as Window & { __restartTour?: () => void }).__restartTour?.(); } },
         { separator: true },
         { label: "Keyboard Shortcuts", disabled: true },
       ],
@@ -401,7 +480,7 @@ export default function Home() {
         id="tour-desktop-area"
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
-        {desktopItems.map((item, i) => (
+        {allDesktopItems.map((item, i) => (
           <DesktopIcon
             key={item.id}
             id={item.id}
@@ -435,7 +514,7 @@ export default function Home() {
       {/* Windows */}
       <AnimatePresence>
         {windows.map((win) => {
-          const config = APP_CONFIGS[win.appId];
+          const config = getAppConfig(win.appId);
           if (!config || win.isMinimized) return null;
           const AppComponent = config.component;
 

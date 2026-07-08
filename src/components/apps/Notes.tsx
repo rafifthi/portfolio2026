@@ -1,25 +1,51 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { notes } from "@/lib/data";
 import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
-
-const folders = ["Career", "Education", "Goals", "Quotes", "Random"];
+import { CmsEntry, NoteData } from "@/lib/cms";
+import { Note } from "@/lib/types";
 
 export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
   const [selectedFolder, setSelectedFolder] = useState("Career");
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [cmsNotes, setCmsNotes] = useState<Note[]>([]);
   // Mobile-only navigation: whether the notes list of a folder is open
   const [mobileFolderOpen, setMobileFolderOpen] = useState(false);
+  const allNotes = cmsNotes.length ? cmsNotes : notes;
+  const folders = useMemo(() => Array.from(new Set(allNotes.map((note) => note.folder))), [allNotes]);
+  const activeFolder = folders.includes(selectedFolder) ? selectedFolder : folders[0] || selectedFolder;
 
   const folderNotes = useMemo(
-    () => notes.filter((n) => n.folder === selectedFolder),
-    [selectedFolder]
+    () => allNotes.filter((n) => n.folder === activeFolder),
+    [activeFolder, allNotes]
   );
 
-  const selectedNote = notes.find((n) => n.id === selectedNoteId);
+  const selectedNote = allNotes.find((n) => n.id === selectedNoteId);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/content?type=notes")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { entries?: CmsEntry<NoteData>[] } | null) => {
+        if (cancelled || !payload?.entries?.length) return;
+        setCmsNotes(
+          payload.entries.map((entry) => ({
+            id: entry.id,
+            folder: entry.data.folder,
+            title: entry.data.title || entry.title,
+            content: entry.data.content,
+            date: entry.data.date,
+          }))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── iOS drill-down (mobile): Folders → Notes list → Note ──
   if (isMobile) {
@@ -30,7 +56,7 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
     const page = selectedNote
       ? { key: `note-${selectedNote.id}`, depth: 2 }
       : mobileFolderOpen
-      ? { key: `list-${selectedFolder}`, depth: 1 }
+      ? { key: `list-${activeFolder}`, depth: 1 }
       : { key: "folders", depth: 0 };
 
     return (
@@ -53,7 +79,7 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
             <>
               <MobileBackHeader label="Folders" onBack={() => { setMobileFolderOpen(false); setSearch(""); }} />
               <div className="px-4 pt-3 pb-1">
-                <h2 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{selectedFolder}</h2>
+                <h2 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{activeFolder}</h2>
               </div>
               <div className="px-4 py-2">
                 <div className="flex items-center rounded-lg px-3 py-2 gap-2 transition-colors duration-300" style={{ background: "var(--bg-input)" }}>
@@ -103,7 +129,7 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
                   <Icon name="Folder" size={22} style={{ color: "rgba(245,158,11,0.95)" }} />
                   <span className="flex-1 text-[16px]" style={{ color: "var(--text-primary)" }}>{folder}</span>
                   <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>
-                    {notes.filter((n) => n.folder === folder).length}
+                    {allNotes.filter((n) => n.folder === folder).length}
                   </span>
                   <Icon name="ChevronRight" size={18} style={{ color: "var(--text-tertiary)" }} />
                 </button>
@@ -135,14 +161,14 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
             }}
             className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors text-left"
             style={{
-              background: selectedFolder === folder ? "rgba(245,158,11,0.85)" : "transparent",
-              color: selectedFolder === folder ? "#fff" : "var(--text-secondary)",
+              background: activeFolder === folder ? "rgba(245,158,11,0.85)" : "transparent",
+              color: activeFolder === folder ? "#fff" : "var(--text-secondary)",
             }}
           >
             <Icon name="Folder" size={16} />
             <span>{folder}</span>
-            <span className="ml-auto text-xs" style={{ color: selectedFolder === folder ? "rgba(255,255,255,0.7)" : "var(--text-tertiary)" }}>
-              {notes.filter((n) => n.folder === folder).length}
+            <span className="ml-auto text-xs" style={{ color: activeFolder === folder ? "rgba(255,255,255,0.7)" : "var(--text-tertiary)" }}>
+              {allNotes.filter((n) => n.folder === folder).length}
             </span>
           </button>
         ))}
