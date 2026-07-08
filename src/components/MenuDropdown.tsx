@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 
 export interface MenuItem {
   label?: string;
@@ -35,10 +36,11 @@ export default function MenuDropdown({ items, onClose, isMobile = false }: MenuD
   }, [onClose]);
 
   // ── iOS action sheet (mobile) ─────────────────────────────
+  // Portaled to <body>: the menu bar's backdrop-filter creates a containing
+  // block that would otherwise trap this position:fixed sheet inside the bar.
   if (isMobile) {
     const visibleItems = items.filter((it) => !it.separator);
-    return (
-      <AnimatePresence>
+    return createPortal(
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -91,14 +93,8 @@ export default function MenuDropdown({ items, onClose, isMobile = false }: MenuD
                       i === 0 ? "none" : "0.5px solid var(--border-subtle)",
                   }}
                 >
-                  <span className="flex items-center gap-2">
-                    {item.label}
-                    {item.shortcut && (
-                      <span className="text-[13px]" style={{ opacity: 0.6 }}>
-                        {item.shortcut}
-                      </span>
-                    )}
-                  </span>
+                  {/* Keyboard shortcuts are desktop-only affordances */}
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>
@@ -112,8 +108,8 @@ export default function MenuDropdown({ items, onClose, isMobile = false }: MenuD
               Cancel
             </button>
           </motion.div>
-        </motion.div>
-      </AnimatePresence>
+        </motion.div>,
+      document.body
     );
   }
 

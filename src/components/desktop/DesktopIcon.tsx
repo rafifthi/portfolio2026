@@ -11,16 +11,18 @@ interface DesktopIconProps {
   y: number;
   width: number;
   onOpen: () => void;
+  disableDrag?: boolean;
+  compact?: boolean;
 }
 
-export default function DesktopIcon({ id, label, image, x, y, width, onOpen }: DesktopIconProps) {
+export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false }: DesktopIconProps) {
   const ptr = useRef({ downTime: 0, dragged: false });
   const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
       id={id}
-      drag
+      drag={!disableDrag}
       dragMomentum={false}
       initial={false}
       onHoverStart={() => setHovered(true)}
@@ -45,7 +47,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen }: D
         left: `${x}%`,
         top: `${y}%`,
         width,
-        touchAction: "none",
+        touchAction: disableDrag ? "manipulation" : "none",
       }}
     >
       {/* Hover glass wrapper — wraps both thumbnail + label */}
@@ -74,7 +76,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen }: D
           <img
             src={image}
             alt={label}
-            className="w-full h-auto object-contain"
+            className={compact ? "w-full h-20 object-cover" : "w-full h-auto object-contain"}
             draggable={false}
           />
         </div>

@@ -21,6 +21,7 @@ interface WindowProps {
   children: React.ReactNode;
   icon?: string;
   isMobile?: boolean;
+  isTop?: boolean;
 }
 
 export default function Window({
@@ -40,6 +41,7 @@ export default function Window({
   children,
   icon,
   isMobile = false,
+  isTop = true,
 }: WindowProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x, y });
@@ -62,19 +64,9 @@ export default function Window({
   if (isMinimized) return null;
 
   // ── iOS bottom sheet (mobile) ──────────────────────────────
+  // The dim backdrop is rendered once by page.tsx (shared across sheets).
   if (isMobile) {
     return (
-      <>
-        {/* Dim backdrop — tap to dismiss */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          onClick={onClose}
-          className="fixed inset-0 z-[9990] bg-black/40"
-        />
-
         <motion.div
           drag="y"
           dragListener={false}
@@ -84,8 +76,13 @@ export default function Window({
           onDragEnd={(_, info) => {
             if (info.offset.y > 120 || info.velocity.y > 600) onClose();
           }}
+          onPointerDown={onFocus}
           initial={{ y: "100%" }}
-          animate={{ y: 0 }}
+          animate={
+            isTop
+              ? { y: 0, scale: 1, opacity: 1 }
+              : { y: -10, scale: 0.96, opacity: 0.85 }
+          }
           exit={{ y: "100%" }}
           transition={{ type: "spring", stiffness: 400, damping: 42, mass: 0.9 }}
           style={{
@@ -93,8 +90,9 @@ export default function Window({
             left: 0,
             right: 0,
             bottom: 0,
-            zIndex: 9992,
-            maxHeight: "92vh",
+            zIndex,
+            height: "92dvh", // iOS "large detent" — uniform sheet height
+
             paddingBottom: "env(safe-area-inset-bottom)",
           }}
           className="window-glass rounded-t-[28px] overflow-hidden flex flex-col"
@@ -105,7 +103,10 @@ export default function Window({
             className="flex-shrink-0"
           >
             <div className="pt-2.5 pb-1 flex justify-center">
-              <div className="w-9 h-1 rounded-full bg-white/25 dark:bg-white/25" />
+              <div
+                className="w-9 h-1 rounded-full"
+                style={{ background: "var(--text-tertiary)" }}
+              />
             </div>
 
             <div
@@ -141,7 +142,6 @@ export default function Window({
             {children}
           </div>
         </motion.div>
-      </>
     );
   }
 
@@ -164,6 +164,7 @@ export default function Window({
           position: "absolute",
           width: isMaximized ? "100vw" : width,
           height: isMaximized ? "calc(100vh - 28px)" : height,
+          maxWidth: isMaximized ? undefined : "calc(100vw - 24px)",
           zIndex,
           left: 0,
           top: 0,
