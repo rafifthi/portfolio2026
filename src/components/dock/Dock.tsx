@@ -40,7 +40,7 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
 }
 
 function DockIcon({ item, isVertical, theme }: { item: DockItemDef; isVertical: boolean; theme: "dark" | "light" }) {
-  const size = isVertical ? 44 : 52;
+  const size = isVertical ? 48 : 52;
   const src = getDockIconSrc(item.id, theme);
 
   if (src) {
@@ -89,10 +89,10 @@ function DockItemComponent({
   if (item.isSeparator) {
     return (
       <div
-        className="rounded-full transition-colors duration-300"
+        className="rounded-full transition-colors duration-300 flex-shrink-0"
         style={{
-          width: isVertical ? 28 : 1,
-          height: isVertical ? 1 : 28,
+          width: isVertical ? 1 : 1,
+          height: isVertical ? 24 : 28,
           margin: isVertical ? "0 4px" : "4px 0",
           background: "var(--border-hover)",
         }}
@@ -112,7 +112,7 @@ function DockItemComponent({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
-      className={`relative flex items-center justify-center ${
+      className={`relative flex items-center justify-center flex-shrink-0 ${
         bouncing ? "dock-bounce" : ""
       }`}
       whileHover={{ scale: 1.15, y: isVertical ? 0 : -10 }}
@@ -122,22 +122,16 @@ function DockItemComponent({
 
       {item.isOpen && (
         <div
-          className={`absolute rounded-full bg-white/70 ${
-            isVertical
-              ? "right-0 top-1/2 -translate-y-1/2 w-1 h-1"
-              : "bottom-0 left-1/2 -translate-x-1/2 w-1 h-1"
-          }`}
+          className="absolute rounded-full bg-white/70 bottom-0 left-1/2 -translate-x-1/2 w-1 h-1"
         />
       )}
 
-      {hovered && (
+      {hovered && !isVertical && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: isVertical ? 0 : 4 }}
+          initial={{ opacity: 0, scale: 0.92, y: 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
-          className={`absolute px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-50 shadow-lg text-xs ${
-            isVertical ? "left-full ml-2" : "bottom-full mb-2"
-          }`}
+          className="absolute px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none z-50 shadow-lg text-xs bottom-full mb-2"
           style={{
             background: "var(--bg-window)",
             color: "var(--text-primary)",
@@ -158,9 +152,14 @@ export default function Dock({ items, onOpenApp, isVertical, theme = "dark" }: D
       id="tour-dock"
       className={`dock-glass flex items-center ${
         isVertical
-          ? "flex-col py-3 px-2 rounded-2xl fixed left-3 top-1/2 -translate-y-1/2 z-50 gap-2.5"
+          ? "flex-row px-3 py-2.5 rounded-t-3xl fixed bottom-0 left-0 right-0 z-50 gap-1.5 overflow-x-auto no-scrollbar"
           : "flex-row px-3 py-2.5 rounded-2xl fixed bottom-4 left-1/2 -translate-x-1/2 z-50 gap-2.5"
       }`}
+      style={
+        isVertical
+          ? { paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom))" }
+          : undefined
+      }
     >
       {items.map((item) => (
         <DockItemComponent

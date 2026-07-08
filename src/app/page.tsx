@@ -80,9 +80,10 @@ export default function Home() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
+    const mq = window.matchMedia("(max-width: 767px)");
+    const syncMobile = () => setIsMobile(mq.matches);
+    syncMobile();
+    mq.addEventListener("change", syncMobile);
 
     const updateTime = () => {
       const now = new Date();
@@ -93,7 +94,7 @@ export default function Home() {
     const interval = setInterval(updateTime, 1000);
 
     return () => {
-      window.removeEventListener("resize", checkMobile);
+      mq.removeEventListener("change", syncMobile);
       clearInterval(interval);
     };
   }, []);
@@ -213,6 +214,38 @@ export default function Home() {
 
   const isDark = theme === "dark";
 
+  const MENU_ITEMS = [
+    {
+      id: "rafif",
+      label: "rafifthi",
+      items: [
+        { label: "About Rafif", action: () => openApp("readme") },
+        { label: "Contact", action: () => openApp("mail") },
+        { separator: true },
+        { label: "Settings", action: () => openApp("settings"), shortcut: "⌘," },
+      ],
+    },
+    {
+      id: "file",
+      label: "File",
+      items: [{ label: "Download CV", action: () => {} }],
+    },
+    {
+      id: "help",
+      label: "Help",
+      items: [
+        { label: "Start Tour", action: () => { (window as any).__restartTour?.(); } },
+        { separator: true },
+        { label: "Keyboard Shortcuts", disabled: true },
+      ],
+    },
+  ];
+
+  // On mobile the menu bar is trimmed to just the owner menu + theme toggle
+  const MENUS = isMobile
+    ? MENU_ITEMS.filter((m) => m.id === "rafif")
+    : MENU_ITEMS;
+
   return (
     <div
       className={`h-full w-full relative overflow-hidden${wallpaper ? "" : " desktop-bg"}`}
@@ -249,34 +282,7 @@ export default function Home() {
 
         {/* Menu items */}
         <div className="flex items-center gap-0.5">
-          {[
-            {
-              id: "rafif",
-              label: "rafifthi",
-              items: [
-                { label: "About Rafif", action: () => openApp("readme") },
-                { label: "Contact", action: () => openApp("mail") },
-                { separator: true },
-                { label: "Settings", action: () => openApp("settings"), shortcut: "⌘," },
-              ],
-            },
-            {
-              id: "file",
-              label: "File",
-              items: [
-                { label: "Download CV", action: () => {} },
-              ],
-            },
-            {
-              id: "help",
-              label: "Help",
-              items: [
-                { label: "Start Tour", action: () => { (window as any).__restartTour?.(); } },
-                { separator: true },
-                { label: "Keyboard Shortcuts", disabled: true },
-              ],
-            },
-          ].map((menu) => (
+          {MENUS.map((menu) => (
             <div key={menu.id} className="relative">
               <button
                 onClick={(e) => {
@@ -313,6 +319,7 @@ export default function Home() {
                       shortcut: item.shortcut,
                     }))}
                     onClose={() => setActiveMenu(null)}
+                    isMobile={isMobile}
                   />
                 )}
               </AnimatePresence>
@@ -336,7 +343,10 @@ export default function Home() {
       </div>
 
       {/* Desktop Icons */}
-      <div id="tour-desktop-area" className="absolute inset-0 pt-8 pb-20 px-4">
+      <div
+        id="tour-desktop-area"
+        className={`absolute inset-0 pt-8 px-4 ${isMobile ? "pb-28" : "pb-20"}`}
+      >
         {desktopItems.map((item) => (
           <DesktopIcon
             key={item.id}
@@ -374,6 +384,7 @@ export default function Home() {
               onMinimize={() => minimizeWindow(win.id)}
               onMaximize={() => maximizeWindow(win.id)}
               icon={config.icon}
+              isMobile={isMobile}
             >
               <AppComponent
                 windowId={win.id}

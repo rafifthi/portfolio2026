@@ -342,7 +342,7 @@ export default function Onboarding() {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -4 }}
           transition={{ type: "spring", stiffness: 450, damping: 28, mass: 0.85 }}
-          className="absolute z-[9999] w-80 rounded-2xl p-5"
+          className="absolute z-[9999] w-[calc(100vw-2rem)] max-w-80 rounded-2xl p-5"
           style={{
             left: tooltipPos.x,
             top: tooltipPos.y,
