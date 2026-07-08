@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@/components/Icon";
 import { photos } from "@/lib/data";
+import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
 
 const gradients = [
   "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -15,11 +17,129 @@ const gradients = [
   "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
 ];
 
-export default function Photos() {
+export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Mobile-only: slide-over drawer for the Library/Albums sections
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const photo = photos.find((p) => p.id === selectedPhoto);
+
+  // ── iOS layout (mobile): All Photos grid, sections in a slide-over drawer ──
+  if (isMobile) {
+    const drawerItems = [
+      { icon: "Image", label: "All Photos", active: true },
+      { icon: "Clock", label: "Recents" },
+      { icon: "Star", label: "Favorites" },
+      { icon: "Trash2", label: "Recently Deleted" },
+    ];
+    const drawerAlbums = [
+      { icon: "Folder", label: "Travel" },
+      { icon: "Folder", label: "Food" },
+    ];
+
+    return (
+      <div className="relative h-full flex flex-col min-h-0 transition-colors duration-300" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+        <MobileStack
+          pageKey={photo && selectedPhoto ? `detail-${selectedPhoto}` : "grid"}
+          depth={photo && selectedPhoto ? 1 : 0}
+        >
+          {photo && selectedPhoto ? (
+            <>
+              <MobileBackHeader label="Photos" onBack={() => setSelectedPhoto(null)} />
+              <div className="flex-1 flex flex-col items-center justify-center p-6" style={{ background: "var(--bg-base)" }}>
+                <div className="w-full max-w-sm aspect-square rounded-xl shadow-2xl" style={{ background: gradients[photos.indexOf(photo) % gradients.length] }} />
+                <div className="mt-4 text-center">
+                  <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>
+                  <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="h-11 flex-shrink-0 flex items-center px-2 gap-2 border-b" style={{ borderColor: "var(--border-subtle)" }}>
+                <button
+                  onClick={() => setDrawerOpen(true)}
+                  className="min-w-11 min-h-11 flex items-center justify-center"
+                  style={{ color: "var(--accent)" }}
+                  aria-label="Open library"
+                >
+                  <Icon name="PanelLeft" size={20} />
+                </button>
+                <span className="text-[16px] font-semibold" style={{ color: "var(--text-primary)" }}>All Photos</span>
+                <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>{photos.length} items</span>
+              </div>
+              <div className="flex-1 overflow-auto overscroll-contain p-1">
+                <div className="grid grid-cols-3 gap-1">
+                  {photos.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedPhoto(p.id)}
+                      className="aspect-square rounded-md overflow-hidden"
+                      style={{ background: gradients[i % gradients.length] }}
+                      aria-label={p.title}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </MobileStack>
+
+        {/* Slide-over library drawer */}
+        <AnimatePresence>
+          {drawerOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setDrawerOpen(false)}
+                className="absolute inset-0 z-20 bg-black/40"
+              />
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "spring", stiffness: 400, damping: 40 }}
+                className="absolute inset-y-0 left-0 z-30 w-64 flex flex-col py-4 px-3 gap-0.5 overflow-auto shadow-2xl"
+                style={{ background: "var(--bg-app)" }}
+              >
+                <div className="text-[11px] font-bold uppercase tracking-wider px-2 mb-2" style={{ color: "var(--text-tertiary)" }}>Library</div>
+                {drawerItems.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] text-left"
+                    style={{
+                      background: item.active ? "var(--accent)" : "transparent",
+                      color: item.active ? "#fff" : "var(--text-secondary)",
+                    }}
+                  >
+                    <Icon name={item.icon} size={18} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+                <div className="text-[11px] font-bold uppercase tracking-wider px-2 mt-4 mb-2" style={{ color: "var(--text-tertiary)" }}>Albums</div>
+                {drawerAlbums.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] text-left"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    <Icon name={item.icon} size={18} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div
