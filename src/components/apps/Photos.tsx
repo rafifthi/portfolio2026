@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@/components/Icon";
 import { photos } from "@/lib/data";
 import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
+import { CmsEntry, GalleryImageData } from "@/lib/cms";
+import { Photo } from "@/lib/types";
 
 const gradients = [
   "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -17,13 +19,44 @@ const gradients = [
   "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
 ];
 
+function PhotoTile({ item, index }: { item: Photo; index: number }) {
+  if (item.src) {
+    return <img src={item.src} alt={item.title} className="h-full w-full object-cover" draggable={false} />;
+  }
+
+  return <div className="h-full w-full" style={{ background: gradients[index % gradients.length] }} />;
+}
+
 export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [cmsPhotos, setCmsPhotos] = useState<Photo[]>([]);
   // Mobile-only: slide-over drawer for the Library/Albums sections
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const allPhotos = cmsPhotos.length ? cmsPhotos : photos;
 
-  const photo = photos.find((p) => p.id === selectedPhoto);
+  const photo = allPhotos.find((p) => p.id === selectedPhoto);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/content?type=gallery")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { entries?: CmsEntry<GalleryImageData>[] } | null) => {
+        if (cancelled || !payload?.entries?.length) return;
+        setCmsPhotos(
+          payload.entries.map((entry) => ({
+            id: entry.id,
+            src: entry.data.src,
+            title: entry.data.title || entry.title,
+            date: entry.data.date,
+          }))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── iOS layout (mobile): All Photos grid, sections in a slide-over drawer ──
   if (isMobile) {
@@ -48,7 +81,9 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
             <>
               <MobileBackHeader label="Photos" onBack={() => setSelectedPhoto(null)} />
               <div className="flex-1 flex flex-col items-center justify-center p-6" style={{ background: "var(--bg-base)" }}>
-                <div className="w-full max-w-sm aspect-square rounded-xl shadow-2xl" style={{ background: gradients[photos.indexOf(photo) % gradients.length] }} />
+                <div className="w-full max-w-sm aspect-square overflow-hidden rounded-xl shadow-2xl">
+                  <PhotoTile item={photo} index={allPhotos.indexOf(photo)} />
+                </div>
                 <div className="mt-4 text-center">
                   <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>
                   <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>
@@ -67,18 +102,19 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
                   <Icon name="PanelLeft" size={20} />
                 </button>
                 <span className="text-[16px] font-semibold" style={{ color: "var(--text-primary)" }}>All Photos</span>
-                <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>{photos.length} items</span>
+                <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>{allPhotos.length} items</span>
               </div>
               <div className="flex-1 overflow-auto overscroll-contain p-1">
                 <div className="grid grid-cols-3 gap-1">
-                  {photos.map((p, i) => (
+                  {allPhotos.map((p, i) => (
                     <button
                       key={p.id}
                       onClick={() => setSelectedPhoto(p.id)}
                       className="aspect-square rounded-md overflow-hidden"
-                      style={{ background: gradients[i % gradients.length] }}
                       aria-label={p.title}
-                    />
+                    >
+                      <PhotoTile item={p} index={i} />
+                    </button>
                   ))}
                 </div>
               </div>
@@ -190,7 +226,7 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
             <Icon name={sidebarOpen ? "PanelLeftClose" : "PanelLeft"} size={16} />
           </button>
           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>All Photos</span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{photos.length} items</span>
+          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{allPhotos.length} items</span>
           <div className="flex-1" />
           <button className="p-1 rounded transition-colors" style={{ color: "var(--text-tertiary)" }}>
             <Icon name="Grid3x3" size={16} />
@@ -206,7 +242,9 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
             >
               <Icon name="X" size={20} />
             </button>
-            <div className="w-full max-w-lg aspect-square rounded-xl shadow-2xl" style={{ background: gradients[photos.indexOf(photo) % gradients.length] }} />
+            <div className="w-full max-w-lg aspect-square overflow-hidden rounded-xl shadow-2xl">
+              <PhotoTile item={photo} index={allPhotos.indexOf(photo)} />
+            </div>
             <div className="mt-4 text-center">
               <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>
               <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>
@@ -215,15 +253,16 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
         ) : (
           <div className="flex-1 overflow-auto p-4">
             <div className="grid grid-cols-4 gap-2">
-              {photos.map((photo, i) => (
+              {allPhotos.map((photo, i) => (
                 <button
                   key={photo.id}
                   onClick={() => setSelectedPhoto(photo.id)}
                   className="aspect-square rounded-lg overflow-hidden relative group transition-all hover:ring-2"
-                  style={{ background: gradients[i % gradients.length], boxShadow: "none" }}
+                  style={{ boxShadow: "none" }}
                   onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; }}
                 >
+                  <PhotoTile item={photo} index={i} />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                   <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="text-xs font-medium truncate text-white">{photo.title}</div>
