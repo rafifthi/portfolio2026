@@ -3,9 +3,9 @@
 import { useTheme } from "@/components/ThemeProvider";
 
 const WALLPAPERS = [
-  { id: "wallpaper-1", label: "Blue", src: "/wallpaper/wallpaper-1.png", accent: "#3b82f6" },
-  { id: "wallpaper-2", label: "Neutral", src: "/wallpaper/wallpaper-2.png", accent: "#6b7280" },
-  { id: "wallpaper-3", label: "Green", src: "/wallpaper/wallpaper-3.png", accent: "#22c55e" },
+  { id: "ascii-magic-1", label: "Blue", src: "/wallpaper/ascii-magic-1.gif", accent: "#3b82f6" },
+  { id: "ascii-magic-2", label: "Neutral", src: "/wallpaper/ascii-magic-2.gif", accent: "#6b7280" },
+  { id: "ascii-magic-3", label: "Green", src: "/wallpaper/ascii-magic-3.gif", accent: "#22c55e" },
 ];
 
 export default function Settings() {

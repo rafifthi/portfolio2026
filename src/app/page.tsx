@@ -334,9 +334,9 @@ export default function Home() {
     }));
 
   const logoSrc =
-    wallpaper === "/wallpaper/wallpaper-1.png"
+    wallpaper === "/wallpaper/ascii-magic-1.gif"
       ? "/logo/blue-logo.svg"
-      : wallpaper === "/wallpaper/wallpaper-3.png"
+      : wallpaper === "/wallpaper/ascii-magic-3.gif"
       ? "/logo/green-logo.svg"
       : theme === "light"
       ? "/logo/neutral-light-logo.svg"
