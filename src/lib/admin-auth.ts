@@ -28,6 +28,12 @@ export function verifyAdminPassword(password: string) {
   return safeEqual(password, expected);
 }
 
+export function verifyAdminUsername(username: string) {
+  const expected = process.env.ADMIN_USERNAME;
+  if (!expected) return true;
+  return safeEqual(username, expected);
+}
+
 export function createAdminSession() {
   const payload: SessionPayload = {
     exp: Date.now() + 1000 * 60 * 60 * 24 * 7,
@@ -64,4 +70,3 @@ export function adminCookieOptions() {
     maxAge: 60 * 60 * 24 * 7,
   };
 }
-

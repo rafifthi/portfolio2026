@@ -4,6 +4,7 @@ Required environment variables:
 
 ```txt
 DATABASE_URL="postgresql://..."
+ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="change-this"
 ADMIN_SESSION_SECRET="use-a-long-random-string"
 CLOUDINARY_CLOUD_NAME="..."
