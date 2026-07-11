@@ -132,6 +132,8 @@ export default function AdminPanel() {
   const [booting, setBooting] = useState(true);
   const [configured, setConfigured] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+  const [usernameRequired, setUsernameRequired] = useState(false);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [activeType, setActiveType] = useState<CmsEntryType>("gallery");
   const [entries, setEntries] = useState<CmsEntry[]>([]);
@@ -148,9 +150,10 @@ export default function AdminPanel() {
   );
 
   async function checkAuth() {
-    const data = await jsonFetch<{ authenticated: boolean; configured: boolean }>("/api/admin/auth");
+    const data = await jsonFetch<{ authenticated: boolean; configured: boolean; usernameRequired: boolean }>("/api/admin/auth");
     setAuthenticated(data.authenticated);
     setConfigured(data.configured);
+    setUsernameRequired(data.usernameRequired);
   }
 
   async function loadEntries(type = activeType) {
@@ -225,8 +228,9 @@ export default function AdminPanel() {
     try {
       await jsonFetch("/api/admin/auth", {
         method: "POST",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
+      setUsername("");
       setPassword("");
       setAuthenticated(true);
       await loadEntries(activeType);
@@ -366,13 +370,23 @@ export default function AdminPanel() {
             <div className="text-xs font-semibold uppercase tracking-wider text-sky-300">Portfolio CMS</div>
             <h1 className="mt-1 text-2xl font-semibold text-white">Admin Login</h1>
           </div>
+          {usernameRequired && (
+            <input
+              type="text"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="ADMIN_USERNAME"
+              className={inputClass("mb-3")}
+              autoFocus
+            />
+          )}
           <input
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="ADMIN_PASSWORD"
             className={inputClass()}
-            autoFocus
+            autoFocus={!usernameRequired}
           />
           {message && <div className="mt-3 text-sm text-rose-300">{message}</div>}
           <button
