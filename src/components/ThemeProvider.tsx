@@ -26,7 +26,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("dark");
-  const [wallpaper, setWallpaperState] = useState<string | null>("/wallpaper/wallpaper-1.png");
+  const [wallpaper, setWallpaperState] = useState<string | null>("/wallpaper/ascii-magic-1.gif");
   const [accentColor, setAccentColorState] = useState("#3b82f6");
 
   useEffect(() => {

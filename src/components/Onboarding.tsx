@@ -247,46 +247,54 @@ export default function Onboarding() {
         <>
           {/* Top */}
           <div
-            className="absolute bg-black/60 transition-all duration-500 ease-out"
+            onClick={skipTour}
+            className="absolute transition-all duration-500 ease-out"
             style={{
               top: 0,
               left: 0,
               right: 0,
               height: targetRect.top,
               pointerEvents: "auto",
+              background: "rgba(0, 0, 0, 0.6)",
             }}
           />
           {/* Left */}
           <div
-            className="absolute bg-black/60 transition-all duration-500 ease-out"
+            onClick={skipTour}
+            className="absolute transition-all duration-500 ease-out"
             style={{
               top: targetRect.top,
               left: 0,
               width: targetRect.left,
               height: targetRect.height,
               pointerEvents: "auto",
+              background: "rgba(0, 0, 0, 0.6)",
             }}
           />
           {/* Right */}
           <div
-            className="absolute bg-black/60 transition-all duration-500 ease-out"
+            onClick={skipTour}
+            className="absolute transition-all duration-500 ease-out"
             style={{
               top: targetRect.top,
               right: 0,
               width: `calc(100% - ${targetRect.right}px)`,
               height: targetRect.height,
               pointerEvents: "auto",
+              background: "rgba(0, 0, 0, 0.6)",
             }}
           />
           {/* Bottom */}
           <div
-            className="absolute bg-black/60 transition-all duration-500 ease-out"
+            onClick={skipTour}
+            className="absolute transition-all duration-500 ease-out"
             style={{
               top: targetRect.bottom,
               left: 0,
               right: 0,
               bottom: 0,
               pointerEvents: "auto",
+              background: "rgba(0, 0, 0, 0.6)",
             }}
           />
           {/* Target highlight */}
@@ -328,8 +336,9 @@ export default function Onboarding() {
         </>
       ) : (
         <div
-          className="absolute inset-0 bg-black/55 transition-all duration-500"
-          style={{ pointerEvents: "auto" }}
+          onClick={skipTour}
+          className="absolute inset-0 transition-all duration-500"
+          style={{ pointerEvents: "auto", background: "rgba(0, 0, 0, 0.55)" }}
         />
       )}
 

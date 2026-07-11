@@ -47,7 +47,8 @@ export default function MenuDropdown({ items, onClose, isMobile = false }: MenuD
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           onClick={onClose}
-          className="fixed inset-0 z-[10000] bg-black/40"
+          className="fixed inset-0 z-[10000]"
+          style={{ background: "rgba(0, 0, 0, 0.4)" }}
         >
           <motion.div
             ref={ref}
