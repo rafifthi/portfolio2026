@@ -417,7 +417,7 @@ export default function AdminPanel() {
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="border-r border-white/10 bg-black/20 p-3">
+          <aside className="flex min-h-0 flex-col border-r border-white/10 bg-black/20 p-3">
             <div className="space-y-1">
               {tabs.map((tab) => (
                 <button
@@ -449,7 +449,7 @@ export default function AdminPanel() {
               New Entry
             </button>
 
-            <div className="mt-4 space-y-2 overflow-auto">
+            <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-auto">
               {filteredEntries.map((entry) => (
                 <button
                   key={entry.id}
@@ -553,8 +553,8 @@ export default function AdminPanel() {
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#090d16] text-white">
-      <div className="flex min-h-screen items-center justify-center">{children}</div>
+    <div className="h-screen bg-[#090d16] text-white">
+      <div className="flex h-full items-center justify-center">{children}</div>
     </div>
   );
 }
