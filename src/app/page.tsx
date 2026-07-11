@@ -21,6 +21,7 @@ import CV from "@/components/apps/CV";
 import CaseViewer from "@/components/apps/CaseViewer";
 import MenuDropdown from "@/components/MenuDropdown";
 import Onboarding from "@/components/Onboarding";
+import BootScreen from "@/components/BootScreen";
 import Settings from "@/components/apps/Settings";
 import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
@@ -98,6 +99,24 @@ export default function Home() {
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [portfolioEntries, setPortfolioEntries] = useState<CmsEntry<PortfolioEntryData>[]>([]);
+  // "pending" on both server and first client render (no hydration mismatch);
+  // resolved to "booting" (first visit) or "done" (returning) in an effect.
+  const [bootStatus, setBootStatus] = useState<"pending" | "booting" | "done">("pending");
+
+  useEffect(() => {
+    const booted = localStorage.getItem("portfolio-boot-completed");
+    // Deliberate setState-in-effect: localStorage is client-only, so the state
+    // must start as "pending" on the server and resolve after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBootStatus(booted ? "done" : "booting");
+  }, []);
+
+  const handleBootComplete = useCallback(() => {
+    // Always persist, including the slow-connection cap path, so a visitor is
+    // never re-trapped in the boot screen.
+    localStorage.setItem("portfolio-boot-completed", "true");
+    setBootStatus("done");
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -560,8 +579,19 @@ export default function Home() {
         theme={theme}
       />
 
-      {/* Onboarding Tour */}
-      <Onboarding />
+      {/* Onboarding Tour — mounts only after boot so its 1s timer starts post-fade */}
+      {bootStatus === "done" && <Onboarding />}
+
+      {/* Retro boot screen (first visit only) */}
+      {bootStatus === "pending" && (
+        <div
+          aria-hidden
+          style={{ position: "fixed", inset: 0, zIndex: 10000, background: "#050508" }}
+        />
+      )}
+      {/* BootScreen fades itself out before calling onComplete, so a plain
+          conditional unmount is safe here (no AnimatePresence needed). */}
+      {bootStatus === "booting" && <BootScreen onComplete={handleBootComplete} />}
     </div>
   );
 }
