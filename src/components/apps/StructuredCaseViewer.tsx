@@ -2,6 +2,7 @@
 
 import { Icon } from "@/components/Icon";
 import { CmsEntry, PortfolioEntryData } from "@/lib/cms";
+import { renderInline } from "@/lib/inline-markdown";
 import { NotionBlock } from "@/lib/types";
 
 function MetaBadge({ label, value }: { label: string; value: string }) {
@@ -25,19 +26,19 @@ function Block({ block }: { block: NotionBlock }) {
         className={block.level === 1 ? "mt-7 text-2xl font-bold" : block.level === 2 ? "mt-7 text-xl font-bold" : "mt-5 text-lg font-semibold"}
         style={{ color: "var(--text-primary)" }}
       >
-        {block.text}
+        {renderInline(block.text)}
       </Tag>
     );
   }
 
   if (block.type === "paragraph") {
-    return <p className="mt-3 text-sm leading-7" style={{ color: "var(--text-secondary)" }}>{block.text}</p>;
+    return <p className="mt-3 text-sm leading-7 whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>{renderInline(block.text)}</p>;
   }
 
   if (block.type === "blockquote") {
     return (
       <blockquote className="mt-4 border-l-2 pl-4 text-sm italic leading-7" style={{ borderColor: "var(--accent)", color: "var(--text-secondary)" }}>
-        {block.text}
+        {renderInline(block.text)}
       </blockquote>
     );
   }
@@ -46,8 +47,57 @@ function Block({ block }: { block: NotionBlock }) {
     const List = block.type === "bulleted_list" ? "ul" : "ol";
     return (
       <List className={`mt-3 space-y-2 pl-5 text-sm leading-6 ${block.type === "bulleted_list" ? "list-disc" : "list-decimal"}`} style={{ color: "var(--text-secondary)" }}>
-        {block.items.map((item) => <li key={item}>{item}</li>)}
+        {block.items.map((item, index) => <li key={index}>{renderInline(item)}</li>)}
       </List>
+    );
+  }
+
+  if (block.type === "todo_list") {
+    return (
+      <div className="mt-3 space-y-2">
+        {block.items.map((item, index) => (
+          <div key={index} className="flex items-start gap-2 text-sm leading-6">
+            <Icon
+              name={item.checked ? "SquareCheck" : "Square"}
+              size={16}
+              className="mt-1 flex-shrink-0"
+              style={{ color: item.checked ? "var(--accent)" : "var(--text-tertiary)" }}
+            />
+            <span style={{ color: item.checked ? "var(--text-tertiary)" : "var(--text-secondary)" }}>
+              {renderInline(item.text)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (block.type === "table") {
+    return (
+      <div className="mt-4 overflow-x-auto rounded-lg border" style={{ borderColor: "var(--border-subtle)" }}>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr style={{ background: "var(--bg-card)" }}>
+              {block.header.map((cell, index) => (
+                <th key={index} className="border-b px-3 py-2 text-left text-xs font-semibold" style={{ borderColor: "var(--border-subtle)", color: "var(--text-primary)" }}>
+                  {renderInline(cell)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex} className={`px-3 py-2 align-top ${rowIndex < block.rows.length - 1 ? "border-b" : ""}`} style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}>
+                    {renderInline(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
 
@@ -63,7 +113,7 @@ function Block({ block }: { block: NotionBlock }) {
     return (
       <div className="mt-4 flex gap-3 rounded-lg border p-4" style={{ background: "var(--bg-card)", borderColor: "var(--border-subtle)" }}>
         <Icon name={block.icon} size={18} style={{ color: "var(--accent)" }} />
-        <div className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{block.text}</div>
+        <div className="text-sm leading-6" style={{ color: "var(--text-secondary)" }}>{renderInline(block.text)}</div>
       </div>
     );
   }

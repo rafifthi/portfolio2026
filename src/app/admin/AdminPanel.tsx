@@ -12,6 +12,7 @@ import {
 } from "@/lib/cms";
 import { NotionBlock } from "@/lib/types";
 import { Icon } from "@/components/Icon";
+import { BlockEditor, EditorBlock, fromEditorBlocks, toEditorBlocks } from "./BlockEditor";
 
 type FormState = CmsEntryInput<GalleryImageData | NoteData | PortfolioEntryData>;
 
@@ -141,7 +142,10 @@ export default function AdminPanel() {
   const [form, setForm] = useState<FormState>(() => emptyData("gallery"));
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [blocksText, setBlocksText] = useState(JSON.stringify((emptyData("portfolio").data as PortfolioEntryData).blocks, null, 2));
+  const [blocks, setBlocks] = useState<EditorBlock[]>(() => toEditorBlocks((emptyData("portfolio").data as PortfolioEntryData).blocks));
+  const [jsonMode, setJsonMode] = useState(false);
+  const [jsonDraft, setJsonDraft] = useState("");
+  const [jsonError, setJsonError] = useState("");
   const [metaText, setMetaText] = useState(metaToText((emptyData("portfolio").data as PortfolioEntryData).meta));
 
   const filteredEntries = useMemo(
@@ -186,7 +190,9 @@ export default function AdminPanel() {
     setSelectedId(null);
     setForm(next);
     if (type === "portfolio") {
-      setBlocksText(JSON.stringify((next.data as PortfolioEntryData).blocks, null, 2));
+      setBlocks(toEditorBlocks((next.data as PortfolioEntryData).blocks));
+      setJsonMode(false);
+      setJsonError("");
       setMetaText(metaToText((next.data as PortfolioEntryData).meta));
     }
   }
@@ -205,7 +211,9 @@ export default function AdminPanel() {
     setForm(next);
     if (entry.type === "portfolio") {
       const data = entry.data as PortfolioEntryData;
-      setBlocksText(JSON.stringify(data.blocks || [], null, 2));
+      setBlocks(toEditorBlocks(data.blocks || []));
+      setJsonMode(false);
+      setJsonError("");
       setMetaText(metaToText(data.meta || []));
     }
   }
@@ -256,11 +264,18 @@ export default function AdminPanel() {
     try {
       let payload = form;
       if (form.type === "portfolio") {
-        let blocks: NotionBlock[];
-        try {
-          blocks = JSON.parse(blocksText) as NotionBlock[];
-        } catch {
-          throw new Error("Portfolio blocks must be valid JSON.");
+        let payloadBlocks: NotionBlock[];
+        if (jsonMode) {
+          try {
+            payloadBlocks = JSON.parse(jsonDraft) as NotionBlock[];
+          } catch {
+            throw new Error("Portfolio blocks must be valid JSON.");
+          }
+          if (!Array.isArray(payloadBlocks)) {
+            throw new Error("Portfolio blocks JSON must be an array.");
+          }
+        } else {
+          payloadBlocks = fromEditorBlocks(blocks);
         }
 
         payload = {
@@ -269,7 +284,7 @@ export default function AdminPanel() {
             ...(form.data as PortfolioEntryData),
             title: form.title,
             meta: textToMeta(metaText),
-            blocks,
+            blocks: payloadBlocks,
           },
         };
       }
@@ -309,6 +324,46 @@ export default function AdminPanel() {
       setMessage("Deleted.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function switchBlocksMode(toJson: boolean) {
+    if (toJson) {
+      setJsonDraft(JSON.stringify(fromEditorBlocks(blocks), null, 2));
+      setJsonError("");
+      setJsonMode(true);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(jsonDraft) as NotionBlock[];
+      if (!Array.isArray(parsed)) throw new Error("not an array");
+      setBlocks(toEditorBlocks(parsed));
+      setJsonError("");
+      setJsonMode(false);
+    } catch {
+      setJsonError("Invalid JSON — fix it (must be an array of blocks) before switching back.");
+    }
+  }
+
+  async function uploadInlineImage(file: File): Promise<string> {
+    setBusy(true);
+    setMessage("");
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      body.set("target", "portfolio-banner");
+      const response = await fetch("/api/admin/upload", { method: "POST", body });
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Upload failed.");
+      }
+      setMessage("Image uploaded.");
+      return data.url;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Upload failed.");
+      return "";
     } finally {
       setBusy(false);
     }
@@ -524,12 +579,18 @@ export default function AdminPanel() {
                 <PortfolioForm
                   data={form.data as PortfolioEntryData}
                   setData={(updater) => setData<PortfolioEntryData>(updater)}
-                  blocksText={blocksText}
-                  setBlocksText={setBlocksText}
+                  blocks={blocks}
+                  setBlocks={setBlocks}
+                  jsonMode={jsonMode}
+                  jsonDraft={jsonDraft}
+                  setJsonDraft={setJsonDraft}
+                  jsonError={jsonError}
+                  switchBlocksMode={switchBlocksMode}
                   metaText={metaText}
                   setMetaText={setMetaText}
                   uploadBanner={(file) => uploadImage(file, "portfolio-banner")}
                   uploadIcon={(file) => uploadImage(file, "portfolio-icon")}
+                  uploadInline={uploadInlineImage}
                 />
               )}
 
@@ -651,21 +712,33 @@ function NotesForm({
 function PortfolioForm({
   data,
   setData,
-  blocksText,
-  setBlocksText,
+  blocks,
+  setBlocks,
+  jsonMode,
+  jsonDraft,
+  setJsonDraft,
+  jsonError,
+  switchBlocksMode,
   metaText,
   setMetaText,
   uploadBanner,
   uploadIcon,
+  uploadInline,
 }: {
   data: PortfolioEntryData;
   setData: (updater: (data: PortfolioEntryData) => PortfolioEntryData) => void;
-  blocksText: string;
-  setBlocksText: (value: string) => void;
+  blocks: EditorBlock[];
+  setBlocks: (blocks: EditorBlock[]) => void;
+  jsonMode: boolean;
+  jsonDraft: string;
+  setJsonDraft: (value: string) => void;
+  jsonError: string;
+  switchBlocksMode: (toJson: boolean) => void;
   metaText: string;
   setMetaText: (value: string) => void;
   uploadBanner: (file: File) => void;
   uploadIcon: (file: File) => void;
+  uploadInline: (file: File) => Promise<string>;
 }) {
   return (
     <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
@@ -712,10 +785,27 @@ function PortfolioForm({
         </div>
       </div>
 
-      <label>
-        <span className="mb-1 block text-xs font-medium text-white/50">Content Blocks JSON</span>
-        <textarea value={blocksText} onChange={(event) => setBlocksText(event.target.value)} className={inputClass("min-h-96 font-mono text-xs leading-relaxed")} />
-      </label>
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-medium text-white/50">Content</span>
+          <button
+            type="button"
+            onClick={() => switchBlocksMode(!jsonMode)}
+            className="flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-xs text-white/60 hover:bg-white/10"
+          >
+            <Icon name={jsonMode ? "LayoutList" : "Braces"} size={12} />
+            {jsonMode ? "Rich editor" : "Edit as JSON"}
+          </button>
+        </div>
+        {jsonMode ? (
+          <>
+            <textarea value={jsonDraft} onChange={(event) => setJsonDraft(event.target.value)} className={inputClass("min-h-96 font-mono text-xs leading-relaxed")} spellCheck={false} />
+            {jsonError && <div className="mt-2 text-xs text-rose-300">{jsonError}</div>}
+          </>
+        ) : (
+          <BlockEditor value={blocks} onChange={setBlocks} uploadImage={uploadInline} />
+        )}
+      </div>
     </section>
   );
 }

@@ -104,7 +104,9 @@ export type NotionBlock =
   | { type: "code"; language: string; code: string }
   | { type: "callout"; icon: string; text: string }
   | { type: "divider" }
-  | { type: "image"; src: string; caption?: string };
+  | { type: "image"; src: string; caption?: string }
+  | { type: "todo_list"; items: { text: string; checked: boolean }[] }
+  | { type: "table"; header: string[]; rows: string[][] };
 
 export interface StudyCase {
   id: string;
