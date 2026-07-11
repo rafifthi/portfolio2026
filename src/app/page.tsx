@@ -505,8 +505,8 @@ export default function Home() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={() => closeWindow(topWindow.id)}
-            className="fixed inset-0 bg-black/40"
-            style={{ zIndex: 90 }}
+            className="fixed inset-0"
+            style={{ zIndex: 90, background: "rgba(0, 0, 0, 0.4)" }}
           />
         )}
       </AnimatePresence>
