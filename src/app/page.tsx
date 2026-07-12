@@ -16,6 +16,7 @@ import LumonaERP from "@/components/apps/LumonaERP";
 import DigitalInvitation from "@/components/apps/DigitalInvitation";
 import AppLauncher from "@/components/apps/AppLauncher";
 import Readme from "@/components/apps/Readme";
+import AboutRafif from "@/components/apps/AboutRafif";
 import Wife from "@/components/apps/Wife";
 import CV from "@/components/apps/CV";
 import CaseViewer from "@/components/apps/CaseViewer";
@@ -32,6 +33,7 @@ import { CmsEntry, PortfolioEntryData } from "@/lib/cms";
 import LumonaMDX, { metadata as lumonaMetadata } from "@content/cases/lumona.mdx";
 import TDNMDX, { metadata as tdnMetadata } from "@content/cases/tdn.mdx";
 import InvitationMDX, { metadata as invitationMetadata } from "@content/cases/invitation.mdx";
+import SewainMDX, { metadata as sewainMetadata } from "@content/cases/sewain.mdx";
 
 interface AppComponentProps {
   windowId: string;
@@ -64,6 +66,9 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   "invitation-case": { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 720, height: 640, component: () => (
     <CaseViewer metadata={invitationMetadata} Content={InvitationMDX} />
   )},
+  "sewain-case": { title: "Sewain Rental", icon: "Home", color: "#3b82f6", width: 720, height: 640, component: () => (
+    <CaseViewer metadata={sewainMetadata} Content={SewainMDX} />
+  )},
   // Dock apps
   finder: { title: "Finder", icon: "FolderOpen", color: "#60a5fa", width: 640, height: 440, component: Finder },
   mail: { title: "Mail", icon: "Mail", color: "#3b82f6", width: 560, height: 540, component: Mail },
@@ -73,8 +78,12 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   terminal: { title: "Terminal", icon: "Terminal", color: "#1f2937", width: 600, height: 420, component: Terminal },
   lumona: { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 520, component: LumonaERP },
   invitation: { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 640, height: 520, component: DigitalInvitation },
+  sewain: { title: "Sewain Rental", icon: "Home", color: "#3b82f6", width: 640, height: 520, component: () => (
+    <CaseViewer metadata={sewainMetadata} Content={SewainMDX} />
+  )},
   apps: { title: "Spotlight", icon: "Search", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
   settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
+  about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
 };
 
 const DOCK_ITEMS = [
@@ -319,7 +328,7 @@ export default function Home() {
       id: "rafif",
       label: "rafifthi",
       items: [
-        { label: "About Rafif", action: () => openApp("readme") },
+        { label: "About Rafif", action: () => openApp("about") },
         { label: "Contact", action: () => openApp("mail") },
         { separator: true },
         { label: "Settings", action: () => openApp("settings"), shortcut: "⌘," },

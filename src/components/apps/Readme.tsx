@@ -23,7 +23,7 @@ export default function Readme() {
               <ul className="space-y-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
                 <li className="flex items-start gap-2">
                   <Icon name="MousePointerClick" size={14} className="mt-1 flex-shrink-0" style={{ color: "var(--accent)" }} />
-                  <span><strong>Single click</strong> an item to select it. Click again to open.</span>
+                  <span><strong>Single click</strong> an item to select it. Click an item to open it.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Icon name="Move" size={14} className="mt-1 flex-shrink-0" style={{ color: "var(--accent)" }} />

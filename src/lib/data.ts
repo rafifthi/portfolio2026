@@ -3,9 +3,10 @@ import { DesktopItem, FinderItem, Note, Photo, MailMessage, StudyCase, Playlist 
 export const desktopItems: DesktopItem[] = [
   { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
   { id: "wife", label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, appId: "wife" },
-  { id: "lumona", label: "Supply Chain ERP", image: "https://picsum.photos/seed/lumona/320/240", x: 55, y: 10, width: 200, appId: "lumona-case" },
-  { id: "siti", label: "TDN Quick Commerce", image: "https://picsum.photos/seed/tdn-meat/260/340", x: 80, y: 14, width: 150, appId: "siti-case" },
-  { id: "invitation", label: "Digital Invitation", image: "https://picsum.photos/seed/invite/300/260", x: 20, y: 55, width: 190, appId: "invitation-case" },
+  { id: "lumona", label: "Supply Chain ERP", image: "/cases/lumona-thumb.png", x: 55, y: 10, width: 200, appId: "lumona-case" },
+  { id: "siti", label: "TDN Quick Commerce", image: "/cases/tdn-thumb.png", x: 80, y: 14, width: 150, appId: "siti-case" },
+  { id: "invitation", label: "Digital Invitation", image: "/cases/invitation-thumb.png", x: 20, y: 55, width: 190, appId: "invitation-case" },
+  { id: "sewain", label: "Sewain Rental", image: "/cases/sewain-thumb.png", x: 45, y: 58, width: 170, appId: "sewain-case" },
   { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 62, y: 58, width: 160, appId: "cv" },
 ];
 
@@ -25,6 +26,10 @@ export const finderSections: Record<string, FinderItem[]> = {
     { id: "de1", name: "README.txt", type: "file", date: "--", size: "2 KB" },
     { id: "de2", name: "wife", type: "folder", date: "--", size: "--" },
     { id: "de3", name: "CV.pdf", type: "pdf", date: "--", size: "245 KB" },
+    { id: "de4", name: "Lumona ERP", type: "app", date: "--", size: "--" },
+    { id: "de5", name: "TDN Quick Commerce", type: "app", date: "--", size: "--" },
+    { id: "de6", name: "Digital Invitation", type: "app", date: "--", size: "--" },
+    { id: "de7", name: "Sewain Rental", type: "app", date: "--", size: "--" },
   ],
   Documents: [
     { id: "do1", name: "Career_Plan_2026.pdf", type: "pdf", date: "May 1, 2026", size: "1.1 MB" },
@@ -45,8 +50,8 @@ export const notes: Note[] = [
     folder: "Career",
     title: "Product Manager",
     content:
-      "Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Dec 2025 - Present\nType: Full-time\n\nDescription: Own product development for ERP SaaS platform targeting SMEs, leading discovery, prioritization, and execution across Merchandising, PoS, and Bookkeeping.\n\nAchievements\n• Own product development for ERP SaaS platform (Merchandising, PoS, Bookkeeping) targeting SMEs\n• Lead product discovery, competitor analysis, and feature prioritization for MVP development\n• Translate business needs into product requirements, user flows, and system-level specifications\n• Work closely with engineering to manage execution, including sprint planning, ticketing, and QA\n• Balance speed and scalability by making trade-offs across business, UX, and technical constraints\n• Introduced AI-assisted workflows to reduce turnaround time from idea to implementation",
-    date: "December 2025",
+      "Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Dec 2025 - Present\nType: Full-time\n\nDescription: Own new product initiatives end-to-end - from discovery to shipped MVP.\n\nWhat I own\n• Lead product discovery and take new initiatives from discovery to MVP: a merchandising ERP and a property rental management system have both shipped\n• Act as Business Analyst and Product Owner for a quick-commerce product for an FMCG retail client - requirements, backlog, sprint planning, and QA\n• Orchestrate R&D with an agentic AI setup (Hermes Agent) to accelerate the product pipeline\n\nApproach\n• Translate messy business needs into clear requirements, user flows, and system-level specs\n• Bridge client stakeholders and engineering - the same discipline I apply across every initiative",
+    date: "Dec 2025 - Present",
   },
   {
     id: "n2",
@@ -229,7 +234,7 @@ export const studyCases: StudyCase[] = [
   {
     id: "lumona-case",
     title: "Lumona ERP",
-    banner: "https://picsum.photos/seed/lumona-banner/800/300",
+    banner: "/cases/lumona-banner.png",
     meta: [
       { label: "Date", value: "Jan 2024 — Present" },
       { label: "Role", value: "Lead Frontend Engineer" },
@@ -279,7 +284,7 @@ export const studyCases: StudyCase[] = [
   {
     id: "siti-case",
     title: "Siti Khadija Loyalty App",
-    banner: "https://picsum.photos/seed/siti-banner/800/300",
+    banner: "/cases/tdn-banner.png",
     meta: [
       { label: "Date", value: "Jun 2023 — Dec 2023" },
       { label: "Role", value: "Full Stack Developer" },
@@ -328,7 +333,7 @@ export const studyCases: StudyCase[] = [
   {
     id: "invitation-case",
     title: "Digital Invitation",
-    banner: "https://picsum.photos/seed/invite-banner/800/300",
+    banner: "/cases/invitation-banner.png",
     meta: [
       { label: "Date", value: "Mar 2023 — Aug 2023" },
       { label: "Role", value: "Solo Founder / Developer" },

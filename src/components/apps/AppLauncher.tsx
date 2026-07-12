@@ -39,6 +39,13 @@ function getAppImg(appId: string, theme: string) {
   return map[appId] || null;
 }
 
+const SOCIAL_URLS: Record<string, string> = {
+  github: "https://github.com/rafifthi",
+  linkedin: "https://linkedin.com/in/rafifthi",
+  twitter: "https://x.com/rafifthi",
+  instagram: "https://instagram.com/rafifthi",
+};
+
 export default function AppLauncher({ onOpenApp }: AppLauncherProps) {
   const { theme } = useTheme();
   const [query, setQuery] = useState("");
@@ -92,10 +99,15 @@ export default function AppLauncher({ onOpenApp }: AppLauncherProps) {
         <div className="grid grid-cols-4 gap-4">
           {filtered.map((app) => {
             const imgSrc = getAppImg(app.id, theme);
+            const socialUrl = SOCIAL_URLS[app.id];
             return (
               <button
                 key={app.id}
-                onClick={() => onOpenApp(app.id)}
+                onClick={() =>
+                  socialUrl
+                    ? window.open(socialUrl, "_blank", "noopener")
+                    : onOpenApp(app.id)
+                }
                 className="flex flex-col items-center gap-3 p-4 rounded-2xl transition-colors duration-200 group"
                 style={{ background: "transparent" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; }}
