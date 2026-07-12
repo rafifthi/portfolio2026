@@ -20,7 +20,7 @@ export default function Wife() {
           style={{ width: 240, aspectRatio: "3 / 4" }}
         >
           <img
-            src="/images/kanza.jpg"
+            src="/images/kanza.JPG"
             alt="My wife"
             className="w-full h-full object-cover"
             draggable={false}

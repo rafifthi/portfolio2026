@@ -2,7 +2,7 @@ import { DesktopItem, FinderItem, Note, Photo, MailMessage, StudyCase, Playlist 
 
 export const desktopItems: DesktopItem[] = [
   { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
-  { id: "wife", label: "wife", image: "/images/ryujin-gf.jpg", x: 28, y: 8, width: 140, appId: "wife" },
+  { id: "wife", label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, appId: "wife" },
   { id: "lumona", label: "Supply Chain ERP", image: "https://picsum.photos/seed/lumona/320/240", x: 55, y: 10, width: 200, appId: "lumona-case" },
   { id: "siti", label: "TDN Quick Commerce", image: "https://picsum.photos/seed/tdn-meat/260/340", x: 80, y: 14, width: 150, appId: "siti-case" },
   { id: "invitation", label: "Digital Invitation", image: "https://picsum.photos/seed/invite/300/260", x: 20, y: 55, width: 190, appId: "invitation-case" },
