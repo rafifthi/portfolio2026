@@ -24,7 +24,7 @@ const COMMANDS: Record<string, (args: string[]) => string[]> = {
   date: () => [new Date().toString()],
   ls: () => [
     "Desktop       Documents     Downloads",
-    "Applications  Projects      Resume.pdf",
+    "Applications  Projects      CV.pdf",
   ],
   pwd: () => ["/Users/guest"],
   echo: (args) => [args.join(" ") || ""],
@@ -32,7 +32,7 @@ const COMMANDS: Record<string, (args: string[]) => string[]> = {
     const file = args[0];
     if (!file) return ["Usage: cat <file>"];
     const files: Record<string, string[]> = {
-      "Resume.pdf": ["[PDF Content - Binary data]"],
+      "CV.pdf": ["[PDF Content - Binary data]"],
       "README.md": [
         "# Portfolio",
         "",

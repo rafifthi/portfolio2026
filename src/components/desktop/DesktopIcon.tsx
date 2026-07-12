@@ -16,7 +16,7 @@ interface DesktopIconProps {
 }
 
 export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false }: DesktopIconProps) {
-  const ptr = useRef({ downTime: 0, dragged: false });
+  const ptr = useRef({ downX: 0, downY: 0, dragged: false });
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -29,16 +29,23 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       onHoverEnd={() => setHovered(false)}
       onPointerDown={(e) => {
         e.stopPropagation();
-        ptr.current.downTime = Date.now();
+        ptr.current.downX = e.clientX;
+        ptr.current.downY = e.clientY;
         ptr.current.dragged = false;
       }}
       onDragStart={() => { ptr.current.dragged = true; }}
-      onTap={() => {
-        if (!ptr.current.dragged) {
-          const elapsed = Date.now() - ptr.current.downTime;
-          if (elapsed < 300) {
-            onOpen();
-          }
+      onPointerUp={(e) => {
+        // Robust click detection: open if the pointer barely moved between
+        // down and up (a tap), regardless of how long the press took.
+        if (ptr.current.dragged) {
+          ptr.current.dragged = false;
+          return;
+        }
+        const dx = e.clientX - ptr.current.downX;
+        const dy = e.clientY - ptr.current.downY;
+        const moved = Math.hypot(dx, dy);
+        if (moved < 6) {
+          onOpen();
         }
         ptr.current.dragged = false;
       }}

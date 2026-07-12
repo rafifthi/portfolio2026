@@ -14,7 +14,28 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
   const [cmsNotes, setCmsNotes] = useState<Note[]>([]);
   // Mobile-only navigation: whether the notes list of a folder is open
   const [mobileFolderOpen, setMobileFolderOpen] = useState(false);
-  const allNotes = cmsNotes.length ? cmsNotes : notes;
+  const allNotes = useMemo<Note[]>(() => {
+    // Merge static + CMS notes. A CMS note overrides a static note by the
+    // composite key `folder + ">" + title`, so a single CMS entry can never
+    // wipe out all static notes (the previous all-or-nothing footgun).
+    const map = new Map<string, Note>();
+    for (const n of notes) map.set(`${n.folder}>${n.title}`, n);
+    for (const n of cmsNotes) map.set(`${n.folder}>${n.title}`, n);
+    // Preserve static order, then append any CMS-only notes.
+    const seen = new Set<string>();
+    const merged: Note[] = [];
+    for (const n of notes) {
+      const key = `${n.folder}>${n.title}`;
+      seen.add(key);
+      const override = map.get(key);
+      merged.push(override || n);
+    }
+    for (const n of cmsNotes) {
+      const key = `${n.folder}>${n.title}`;
+      if (!seen.has(key)) merged.push(n);
+    }
+    return merged;
+  }, [cmsNotes]);
   const folders = useMemo(() => Array.from(new Set(allNotes.map((note) => note.folder))), [allNotes]);
   const activeFolder = folders.includes(selectedFolder) ? selectedFolder : folders[0] || selectedFolder;
 
