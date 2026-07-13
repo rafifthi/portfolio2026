@@ -16,13 +16,7 @@ export interface CmsEntry<TData = unknown> {
 }
 
 export interface GalleryImageData {
-  title: string;
   src: string;
-  date: string;
-  alt?: string;
-  caption?: string;
-  tags?: string[];
-  featured?: boolean;
 }
 
 export interface NoteData {
@@ -77,4 +71,3 @@ export function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 }
-

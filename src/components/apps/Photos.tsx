@@ -47,8 +47,8 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
           payload.entries.map((entry) => ({
             id: entry.id,
             src: entry.data.src,
-            title: entry.data.title || entry.title,
-            date: entry.data.date,
+            title: "",
+            date: "",
           }))
         );
       })
@@ -85,8 +85,8 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
                   <PhotoTile item={photo} index={allPhotos.indexOf(photo)} />
                 </div>
                 <div className="mt-4 text-center">
-                  <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>
-                  <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>
+                  {photo.title && <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>}
+                  {photo.date && <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>}
                 </div>
               </div>
             </>

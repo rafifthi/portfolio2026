@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { DragEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   CmsEntry,
   CmsEntryInput,
@@ -22,10 +22,6 @@ const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "portfolio", label: "Portfolio", icon: "BriefcaseBusiness" },
 ];
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function emptyData(type: CmsEntryType): FormState {
   if (type === "notes") {
     return {
@@ -38,7 +34,7 @@ function emptyData(type: CmsEntryType): FormState {
         folder: "Career",
         title: "",
         content: "",
-        date: today(),
+        date: new Date().toISOString().slice(0, 10),
       },
     };
   }
@@ -78,26 +74,13 @@ function emptyData(type: CmsEntryType): FormState {
     status: "draft",
     sortOrder: 0,
     data: {
-      title: "",
       src: "",
-      date: today(),
-      alt: "",
-      caption: "",
-      tags: [],
-      featured: false,
     },
   };
 }
 
 function inputClass(extra = "") {
   return `w-full rounded-md border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white outline-none transition focus:border-sky-400 ${extra}`;
-}
-
-function parseTags(value: string) {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 }
 
 function metaToText(meta: PortfolioEntryData["meta"]) {
@@ -403,6 +386,89 @@ export default function AdminPanel() {
     }
   }
 
+  async function uploadGalleryFiles(files: File[]) {
+    if (!files.length) return;
+    setBusy(true);
+    setMessage(`Uploading ${files.length} photo${files.length === 1 ? "" : "s"}...`);
+
+    try {
+      const startOrder = filteredEntries.length;
+      for (const [index, file] of files.entries()) {
+        const body = new FormData();
+        body.set("file", file);
+        body.set("target", "gallery");
+        const response = await fetch("/api/admin/upload", { method: "POST", body });
+        const uploaded = (await response.json()) as { url?: string; error?: string };
+        if (!response.ok || !uploaded.url) throw new Error(uploaded.error || `Failed to upload ${file.name}.`);
+
+        const internalName = `${Date.now()}-${index}-${file.name.replace(/\.[^.]+$/, "") || "photo"}`;
+        await jsonFetch("/api/admin/content", {
+          method: "POST",
+          body: JSON.stringify({
+            type: "gallery",
+            title: internalName,
+            slug: slugify(internalName),
+            status: "published",
+            sortOrder: startOrder + index,
+            data: { src: uploaded.url },
+          }),
+        });
+      }
+      await loadEntries("gallery");
+      setMessage(`${files.length} photo${files.length === 1 ? "" : "s"} added.`);
+    } catch (error) {
+      await loadEntries("gallery");
+      setMessage(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeGalleryEntry(entry: CmsEntry) {
+    if (!window.confirm("Delete this photo?")) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      await jsonFetch(`/api/admin/content/${entry.id}`, { method: "DELETE" });
+      await loadEntries("gallery");
+      setMessage("Photo deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reorderGallery(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= filteredEntries.length) return;
+    const reordered = [...filteredEntries];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setEntries((current) => [
+      ...current.filter((entry) => entry.type !== "gallery"),
+      ...reordered.map((entry, index) => ({ ...entry, sortOrder: index })),
+    ]);
+    setBusy(true);
+    setMessage("Saving order...");
+    try {
+      await Promise.all(
+        reordered.map((entry, index) =>
+          jsonFetch(`/api/admin/content/${entry.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ ...entry, sortOrder: index }),
+          })
+        )
+      );
+      await loadEntries("gallery");
+      setMessage("Order saved.");
+    } catch (error) {
+      await loadEntries("gallery");
+      setMessage(error instanceof Error ? error.message : "Failed to save order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (booting) {
     return <Shell><div className="text-sm text-white/60">Loading admin...</div></Shell>;
   }
@@ -496,16 +562,18 @@ export default function AdminPanel() {
               ))}
             </div>
 
-            <button
-              onClick={() => startNew(activeType)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15"
-            >
-              <Icon name="Plus" size={16} />
-              New Entry
-            </button>
+            {activeType !== "gallery" && (
+              <button
+                onClick={() => startNew(activeType)}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15"
+              >
+                <Icon name="Plus" size={16} />
+                New Entry
+              </button>
+            )}
 
             <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-auto">
-              {filteredEntries.map((entry) => (
+              {activeType !== "gallery" && filteredEntries.map((entry) => (
                 <button
                   key={entry.id}
                   onClick={() => selectEntry(entry)}
@@ -519,7 +587,7 @@ export default function AdminPanel() {
                   </div>
                 </button>
               ))}
-              {filteredEntries.length === 0 && (
+              {activeType !== "gallery" && filteredEntries.length === 0 && (
                 <div className="rounded-md border border-dashed border-white/10 p-4 text-center text-sm text-white/35">
                   No entries yet.
                 </div>
@@ -528,6 +596,15 @@ export default function AdminPanel() {
           </aside>
 
           <main className="min-h-0 overflow-auto p-5">
+            {activeType === "gallery" ? (
+              <GalleryManager
+                entries={filteredEntries}
+                busy={busy}
+                upload={uploadGalleryFiles}
+                remove={removeGalleryEntry}
+                reorder={reorderGallery}
+              />
+            ) : (
             <form onSubmit={save} className="mx-auto max-w-5xl space-y-5">
               <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-4">
                 <label className="md:col-span-2">
@@ -559,14 +636,6 @@ export default function AdminPanel() {
                   </select>
                 </label>
               </section>
-
-              {form.type === "gallery" && (
-                <GalleryForm
-                  data={form.data as GalleryImageData}
-                  setData={(updater) => setData<GalleryImageData>(updater)}
-                  upload={(file) => uploadImage(file, "gallery")}
-                />
-              )}
 
               {form.type === "notes" && (
                 <NotesForm
@@ -605,6 +674,7 @@ export default function AdminPanel() {
                 )}
               </div>
             </form>
+            )}
           </main>
         </div>
       </div>
@@ -639,48 +709,124 @@ function FileInput({ label, onFile }: { label: string; onFile: (file: File) => v
   );
 }
 
-function GalleryForm({
-  data,
-  setData,
+function GalleryManager({
+  entries,
+  busy,
   upload,
+  remove,
+  reorder,
 }: {
-  data: GalleryImageData;
-  setData: (updater: (data: GalleryImageData) => GalleryImageData) => void;
-  upload: (file: File) => void;
+  entries: CmsEntry[];
+  busy: boolean;
+  upload: (files: File[]) => void;
+  remove: (entry: CmsEntry) => void;
+  reorder: (fromIndex: number, toIndex: number) => void;
 }) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dropActive, setDropActive] = useState(false);
+
+  function acceptFiles(files: FileList | null) {
+    const images = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
+    if (images.length) upload(images);
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setDropActive(false);
+    if (event.dataTransfer.files.length) acceptFiles(event.dataTransfer.files);
+  }
+
   return (
-    <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="mx-auto max-w-6xl space-y-5">
       <div>
-        <div className="aspect-square overflow-hidden rounded-lg bg-white/[0.06]">
-          {data.src ? <img src={data.src} alt={data.alt || data.title} className="h-full w-full object-cover" /> : null}
-        </div>
-        <div className="mt-3">
-          <FileInput label="Upload Image" onFile={upload} />
-        </div>
+        <h1 className="text-xl font-semibold text-white">Gallery photos</h1>
+        <p className="mt-1 text-sm text-white/50">Drop photos to upload. Drag thumbnails to arrange their order.</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="md:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-white/50">Image URL</span>
-          <input value={data.src} onChange={(event) => setData((current) => ({ ...current, src: event.target.value }))} className={inputClass()} />
+
+      <section
+        onDragEnter={(event) => {
+          if (event.dataTransfer.types.includes("Files")) setDropActive(true);
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => {
+          if (event.currentTarget === event.target) setDropActive(false);
+        }}
+        onDrop={handleDrop}
+        className={`relative rounded-xl border border-dashed p-6 text-center transition-colors ${
+          dropActive ? "border-sky-400 bg-sky-400/10" : "border-white/15 bg-white/[0.025]"
+        }`}
+      >
+        <Icon name="Images" size={28} className="mx-auto text-sky-300" />
+        <div className="mt-3 text-sm font-medium text-white">Drag and drop photos here</div>
+        <div className="mt-1 text-xs text-white/40">You can upload multiple images at once</div>
+        <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 focus-within:ring-2 focus-within:ring-sky-300">
+          <Icon name="Upload" size={15} />
+          {busy ? "Working..." : "Choose photos"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={busy}
+            className="sr-only"
+            onChange={(event) => {
+              acceptFiles(event.target.files);
+              event.currentTarget.value = "";
+            }}
+          />
         </label>
-        <label>
-          <span className="mb-1 block text-xs font-medium text-white/50">Date</span>
-          <input type="date" value={data.date} onChange={(event) => setData((current) => ({ ...current, date: event.target.value }))} className={inputClass()} />
-        </label>
-        <label>
-          <span className="mb-1 block text-xs font-medium text-white/50">Tags</span>
-          <input value={(data.tags || []).join(", ")} onChange={(event) => setData((current) => ({ ...current, tags: parseTags(event.target.value) }))} className={inputClass()} />
-        </label>
-        <label className="md:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-white/50">Alt Text</span>
-          <input value={data.alt || ""} onChange={(event) => setData((current) => ({ ...current, alt: event.target.value }))} className={inputClass()} />
-        </label>
-        <label className="md:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-white/50">Caption</span>
-          <textarea value={data.caption || ""} onChange={(event) => setData((current) => ({ ...current, caption: event.target.value }))} className={inputClass("min-h-24")} />
-        </label>
-      </div>
-    </section>
+      </section>
+
+      {entries.length ? (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-label="Gallery photo order">
+          {entries.map((entry, index) => {
+            const src = (entry.data as GalleryImageData).src;
+            return (
+              <article
+                key={entry.id}
+                draggable={!busy}
+                onDragStart={(event) => {
+                  setDraggingIndex(index);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", entry.id);
+                }}
+                onDragEnd={() => setDraggingIndex(null)}
+                onDragOver={(event) => {
+                  if (draggingIndex !== null) event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  if (!event.dataTransfer.files.length && draggingIndex !== null) {
+                    event.preventDefault();
+                    reorder(draggingIndex, index);
+                    setDraggingIndex(null);
+                  }
+                }}
+                className={`group relative aspect-square overflow-hidden rounded-lg border bg-white/[0.04] transition ${
+                  draggingIndex === index ? "border-sky-400 opacity-40" : "border-white/10"
+                }`}
+              >
+                {src && <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />}
+                <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-black/65 p-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                  <span className="mr-auto flex items-center gap-1 text-xs text-white/80">
+                    <Icon name="Grip" size={14} /> {index + 1}
+                  </span>
+                  <button type="button" disabled={busy || index === 0} onClick={() => reorder(index, index - 1)} aria-label={`Move photo ${index + 1} earlier`} className="rounded p-1.5 text-white/80 hover:bg-white/15 disabled:opacity-30">
+                    <Icon name="ArrowLeft" size={14} />
+                  </button>
+                  <button type="button" disabled={busy || index === entries.length - 1} onClick={() => reorder(index, index + 1)} aria-label={`Move photo ${index + 1} later`} className="rounded p-1.5 text-white/80 hover:bg-white/15 disabled:opacity-30">
+                    <Icon name="ArrowRight" size={14} />
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => remove(entry)} aria-label={`Delete photo ${index + 1}`} className="rounded p-1.5 text-rose-200 hover:bg-rose-400/20 disabled:opacity-30">
+                    <Icon name="Trash2" size={14} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      ) : (
+        <div className="py-10 text-center text-sm text-white/40">No photos yet. Drop your first images above.</div>
+      )}
+    </div>
   );
 }
 
