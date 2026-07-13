@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CmsEntryInput, isCmsEntryType, slugify } from "@/lib/cms";
+import { isCmsEntryType, normalizeCmsEntryInput } from "@/lib/cms";
 import { createCmsEntry, listCmsEntries } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
+import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function normalizeInput(body: Partial<CmsEntryInput>): CmsEntryInput | null {
-  const type = body.type;
-  if (!type || !isCmsEntryType(type)) return null;
-  const title = String(body.title ?? "").trim();
-  if (!title) return null;
-
-  return {
-    type,
-    title,
-    slug: String(body.slug || slugify(title)).trim(),
-    status: body.status === "published" ? "published" : "draft",
-    sortOrder: Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
-    data: body.data ?? {},
-  };
-}
 
 export async function GET(request: NextRequest) {
   if (!(await isAdminSession())) {
@@ -46,13 +31,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const input = normalizeInput((await request.json().catch(() => null)) ?? {});
+  const input = normalizeCmsEntryInput((await request.json().catch(() => null)) ?? {});
   if (!input) {
     return NextResponse.json({ error: "Invalid content payload." }, { status: 400 });
   }
 
   try {
     const entry = await createCmsEntry(input);
+    invalidatePublishedCmsEntries();
     return NextResponse.json({ entry }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

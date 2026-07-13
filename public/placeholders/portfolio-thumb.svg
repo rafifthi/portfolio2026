@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img" aria-labelledby="title desc">
+  <title id="title">Portfolio image placeholder</title>
+  <desc id="desc">A neutral placeholder shown until a portfolio thumbnail is uploaded.</desc>
+  <rect width="320" height="240" rx="18" fill="#20242b"/>
+  <rect x="1" y="1" width="318" height="238" rx="17" fill="none" stroke="#3a404a" stroke-width="2"/>
+  <path d="M120 152l27-29 22 22 15-16 36 39H104z" fill="#303640"/>
+  <circle cx="196" cy="93" r="13" fill="#3a414c"/>
+  <rect x="103" y="72" width="114" height="96" rx="12" fill="none" stroke="#69717d" stroke-width="4"/>
+</svg>

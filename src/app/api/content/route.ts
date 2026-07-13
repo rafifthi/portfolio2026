@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isCmsEntryType } from "@/lib/cms";
-import { listCmsEntries } from "@/lib/cms-db";
+import { listPublishedCmsEntries } from "@/lib/cms-cache";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type");
@@ -16,7 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const entries = await listCmsEntries(type, false);
+    const entries = await listPublishedCmsEntries(type);
     return NextResponse.json({ entries });
   } catch (error) {
     return NextResponse.json(
@@ -25,4 +24,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

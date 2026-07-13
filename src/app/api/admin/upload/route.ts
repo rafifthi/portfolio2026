@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { isAdminSession } from "@/lib/admin-auth";
-import { browserImageUrl } from "@/lib/cms";
+import { browserImageUrl, CmsImageMetadata } from "@/lib/cms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+type UploadTarget = "gallery" | "portfolio-banner" | "portfolio-icon";
 
 function cloudinaryConfig() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -27,7 +30,13 @@ function signUpload(params: Record<string, string | number>, apiSecret: string) 
   return createHash("sha1").update(payload + apiSecret).digest("hex");
 }
 
-function fixedUploadFolder(target: FormDataEntryValue | null) {
+function normalizeUploadTarget(value: FormDataEntryValue | null): UploadTarget | null {
+  if (value === null || value === "gallery") return "gallery";
+  if (value === "portfolio-banner" || value === "portfolio-icon") return value;
+  return null;
+}
+
+function fixedUploadFolder(target: UploadTarget) {
   if (target === "portfolio-banner") {
     return process.env.CLOUDINARY_PORTFOLIO_BANNER_FOLDER || "portfolio-cms/portfolio-banners";
   }
@@ -48,10 +57,22 @@ export async function POST(request: Request) {
     const { cloudName, apiKey, apiSecret } = cloudinaryConfig();
     const incoming = await request.formData();
     const file = incoming.get("file");
-    const target = incoming.get("target");
+    const target = normalizeUploadTarget(incoming.get("target"));
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing image file." }, { status: 400 });
+    }
+    if (!target) {
+      return NextResponse.json({ error: "Invalid upload target." }, { status: 400 });
+    }
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Only image files can be uploaded." }, { status: 415 });
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return NextResponse.json(
+        { error: "Image is larger than the 20 MB upload limit." },
+        { status: 413 }
+      );
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
@@ -77,11 +98,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const media: CmsImageMetadata = {
+      publicId: String(result.public_id),
+      originalUrl: String(result.secure_url),
+      version: Number.isFinite(Number(result.version)) ? Number(result.version) : undefined,
+      width: Number(result.width),
+      height: Number(result.height),
+      format: result.format ? String(result.format) : undefined,
+      bytes: Number.isFinite(Number(result.bytes)) ? Number(result.bytes) : undefined,
+      resourceType: result.resource_type ? String(result.resource_type) : undefined,
+      originalFilename: result.original_filename ? String(result.original_filename) : undefined,
+    };
+
     return NextResponse.json({
       url: browserImageUrl(result.secure_url),
-      publicId: result.public_id,
-      width: result.width,
-      height: result.height,
+      media,
     });
   } catch (error) {
     return NextResponse.json(

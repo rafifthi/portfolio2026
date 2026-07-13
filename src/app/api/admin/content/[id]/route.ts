@@ -1,26 +1,11 @@
 import { NextResponse } from "next/server";
-import { CmsEntryInput, isCmsEntryType, slugify } from "@/lib/cms";
+import { normalizeCmsEntryInput } from "@/lib/cms";
 import { deleteCmsEntry, updateCmsEntry } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
+import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function normalizeInput(body: Partial<CmsEntryInput>): CmsEntryInput | null {
-  const type = body.type;
-  if (!type || !isCmsEntryType(type)) return null;
-  const title = String(body.title ?? "").trim();
-  if (!title) return null;
-
-  return {
-    type,
-    title,
-    slug: String(body.slug || slugify(title)).trim(),
-    status: body.status === "published" ? "published" : "draft",
-    sortOrder: Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
-    data: body.data ?? {},
-  };
-}
 
 export async function PATCH(
   request: Request,
@@ -31,7 +16,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const input = normalizeInput((await request.json().catch(() => null)) ?? {});
+  const input = normalizeCmsEntryInput((await request.json().catch(() => null)) ?? {});
   if (!input) {
     return NextResponse.json({ error: "Invalid content payload." }, { status: 400 });
   }
@@ -41,6 +26,7 @@ export async function PATCH(
     if (!entry) {
       return NextResponse.json({ error: "Content not found." }, { status: 404 });
     }
+    invalidatePublishedCmsEntries();
     return NextResponse.json({ entry });
   } catch (error) {
     return NextResponse.json(
@@ -61,10 +47,11 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    const deleted = await deleteCmsEntry(id);
-    if (!deleted) {
+    const deletedType = await deleteCmsEntry(id);
+    if (!deletedType) {
       return NextResponse.json({ error: "Content not found." }, { status: 404 });
     }
+    invalidatePublishedCmsEntries();
     return NextResponse.json({ deleted: true });
   } catch (error) {
     return NextResponse.json(

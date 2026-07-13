@@ -14,8 +14,6 @@ type CmsRow = {
   updated_at: string | Date;
 };
 
-let schemaReady = false;
-
 function getSql() {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -38,35 +36,7 @@ function toEntry(row: CmsRow): CmsEntry {
   };
 }
 
-export async function ensureCmsSchema() {
-  if (schemaReady) return;
-  const sql = getSql();
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS cms_entries (
-      id text PRIMARY KEY,
-      type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio')),
-      slug text NOT NULL,
-      title text NOT NULL,
-      status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
-      sort_order integer NOT NULL DEFAULT 0,
-      data jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      UNIQUE (type, slug)
-    )
-  `;
-
-  await sql`
-    CREATE INDEX IF NOT EXISTS cms_entries_type_status_sort_idx
-    ON cms_entries (type, status, sort_order, updated_at DESC)
-  `;
-
-  schemaReady = true;
-}
-
 export async function listCmsEntries(type?: CmsEntryType, includeDrafts = false) {
-  await ensureCmsSchema();
   const sql = getSql();
 
   const rows = type
@@ -96,7 +66,6 @@ export async function listCmsEntries(type?: CmsEntryType, includeDrafts = false)
 }
 
 export async function createCmsEntry(input: CmsEntryInput) {
-  await ensureCmsSchema();
   const sql = getSql();
   const id = randomUUID();
   const rows = await sql`
@@ -116,8 +85,37 @@ export async function createCmsEntry(input: CmsEntryInput) {
   return toEntry(rows[0]);
 }
 
+export async function createCmsEntries(inputs: CmsEntryInput[]) {
+  if (!inputs.length) return [];
+  const sql = getSql();
+  const payload = inputs.map((input) => ({
+    id: randomUUID(),
+    type: input.type,
+    slug: input.slug,
+    title: input.title,
+    status: input.status,
+    sort_order: input.sortOrder,
+    data: input.data,
+  }));
+  const rows = await sql`
+    INSERT INTO cms_entries (id, type, slug, title, status, sort_order, data)
+    SELECT id, type, slug, title, status, sort_order, data
+    FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) AS item(
+      id text,
+      type text,
+      slug text,
+      title text,
+      status text,
+      sort_order integer,
+      data jsonb
+    )
+    RETURNING *
+  ` as CmsRow[];
+
+  return rows.map(toEntry);
+}
+
 export async function updateCmsEntry(id: string, input: CmsEntryInput) {
-  await ensureCmsSchema();
   const sql = getSql();
   const rows = await sql`
     UPDATE cms_entries
@@ -136,13 +134,60 @@ export async function updateCmsEntry(id: string, input: CmsEntryInput) {
   return rows[0] ? toEntry(rows[0]) : null;
 }
 
+export async function updateCmsEntries(
+  updates: { id: string; input: CmsEntryInput }[]
+) {
+  if (!updates.length) return [];
+  const sql = getSql();
+  const payload = updates.map(({ id, input }) => ({
+    id,
+    type: input.type,
+    slug: input.slug,
+    title: input.title,
+    status: input.status,
+    sort_order: input.sortOrder,
+    data: input.data,
+  }));
+  const rows = await sql`
+    WITH input AS (
+      SELECT *
+      FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) AS item(
+        id text,
+        type text,
+        slug text,
+        title text,
+        status text,
+        sort_order integer,
+        data jsonb
+      )
+    ), valid AS (
+      SELECT count(*) = ${updates.length} AS ok
+      FROM cms_entries
+      INNER JOIN input USING (id)
+    )
+    UPDATE cms_entries
+    SET
+      type = input.type,
+      slug = input.slug,
+      title = input.title,
+      status = input.status,
+      sort_order = input.sort_order,
+      data = input.data,
+      updated_at = now()
+    FROM input, valid
+    WHERE valid.ok AND cms_entries.id = input.id
+    RETURNING cms_entries.*
+  ` as CmsRow[];
+
+  return rows.map(toEntry);
+}
+
 export async function deleteCmsEntry(id: string) {
-  await ensureCmsSchema();
   const sql = getSql();
   const rows = await sql`
     DELETE FROM cms_entries
     WHERE id = ${id}
-    RETURNING id
-  ` as { id: string }[];
-  return rows.length > 0;
+    RETURNING type
+  ` as { type: CmsEntryType }[];
+  return rows[0]?.type ?? null;
 }

@@ -28,7 +28,7 @@ import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { WindowState } from "@/lib/types";
-import { CmsEntry, PortfolioEntryData } from "@/lib/cms";
+import { browserImageUrl, CmsEntry, PortfolioEntryData } from "@/lib/cms";
 
 import LumonaMDX, { metadata as lumonaMetadata } from "@content/cases/lumona.mdx";
 import TDNMDX, { metadata as tdnMetadata } from "@content/cases/tdn.mdx";
@@ -149,7 +149,7 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/content?type=portfolio")
+    fetch("/api/content?type=portfolio", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: { entries?: CmsEntry<PortfolioEntryData>[] } | null) => {
         if (!cancelled && payload?.entries?.length) {
@@ -169,7 +169,7 @@ export default function Home() {
         return {
           id: `cms-desktop-${entry.id}`,
           label: desktop?.label || entry.title,
-          image: desktop?.image || entry.data.banner || "/window.svg",
+          image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
           x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
           y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
           width: Number.isFinite(desktop?.width) ? desktop.width : 170,
@@ -179,10 +179,34 @@ export default function Home() {
     [portfolioEntries]
   );
 
-  const allDesktopItems = useMemo(
-    () => [...desktopItems, ...cmsDesktopItems],
-    [cmsDesktopItems]
-  );
+  const allDesktopItems = useMemo(() => {
+    const normalize = (value: string) =>
+      value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const cmsKeys = Array.from(new Set(
+      portfolioEntries.flatMap((entry) => [
+        normalize(entry.slug),
+        normalize(entry.title),
+        normalize(entry.data.title || ""),
+        normalize(entry.data.desktop?.label || ""),
+      ]).filter(Boolean)
+    ));
+    const staticItems = desktopItems.filter((item) => {
+      if (!item.appId.endsWith("-case")) return true;
+      return ![
+        normalize(item.id),
+        normalize(item.appId.replace(/-case$/, "")),
+        normalize(item.label),
+      ].some((key) =>
+        cmsKeys.some((cmsKey) =>
+          cmsKey === key ||
+          (key.length >= 5 && cmsKey.startsWith(key)) ||
+          (cmsKey.length >= 5 && key.startsWith(cmsKey))
+        )
+      );
+    });
+
+    return [...staticItems, ...cmsDesktopItems];
+  }, [cmsDesktopItems, portfolioEntries]);
 
   const getAppConfig = useCallback(
     (appId: string) => {
