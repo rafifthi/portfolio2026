@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useTheme } from "@/components/ThemeProvider";
+import { siteLinks } from "@/lib/site";
 
 interface AppLauncherProps {
   onOpenApp: (appId: string) => void;
@@ -40,10 +41,10 @@ function getAppImg(appId: string, theme: string) {
 }
 
 const SOCIAL_URLS: Record<string, string> = {
-  github: "https://github.com/rafifthi",
-  linkedin: "https://linkedin.com/in/rafifthi",
-  twitter: "https://x.com/rafifthi",
-  instagram: "https://instagram.com/rafifthi",
+  github: siteLinks.github,
+  linkedin: siteLinks.linkedin,
+  twitter: siteLinks.twitter,
+  instagram: siteLinks.instagram,
 };
 
 export default function AppLauncher({ onOpenApp }: AppLauncherProps) {

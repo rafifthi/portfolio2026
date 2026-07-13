@@ -41,3 +41,11 @@ export const siteConfig = {
   locale: "en_US",
   twitterHandle: "@rafifthi",
 } as const;
+
+export const siteLinks = {
+  email: "mailto:rafifthii@gmail.com",
+  github: "https://github.com/rafifthi",
+  linkedin: "https://linkedin.com/in/rafifthi",
+  twitter: "https://x.com/rafifthi",
+  instagram: "https://instagram.com/rafifthi",
+} as const;
