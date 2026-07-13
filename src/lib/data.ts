@@ -3,10 +3,6 @@ import { DesktopItem, FinderItem, Note, Photo, MailMessage, StudyCase, Playlist 
 export const desktopItems: DesktopItem[] = [
   { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
   { id: "wife", label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, appId: "wife" },
-  { id: "lumona", label: "Supply Chain ERP", image: "/placeholders/portfolio-thumb.svg", x: 55, y: 10, width: 200, appId: "lumona-case" },
-  { id: "siti", label: "TDN Quick Commerce", image: "/placeholders/portfolio-thumb.svg", x: 80, y: 14, width: 150, appId: "siti-case" },
-  { id: "invitation", label: "Digital Invitation", image: "/placeholders/portfolio-thumb.svg", x: 20, y: 55, width: 190, appId: "invitation-case" },
-  { id: "sewain", label: "Sewain Rental", image: "/placeholders/portfolio-thumb.svg", x: 45, y: 58, width: 170, appId: "sewain-case" },
   { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 62, y: 58, width: 160, appId: "cv" },
 ];
 
@@ -26,10 +22,6 @@ export const finderSections: Record<string, FinderItem[]> = {
     { id: "de1", name: "README.txt", type: "file", date: "--", size: "2 KB" },
     { id: "de2", name: "wife", type: "folder", date: "--", size: "--" },
     { id: "de3", name: "CV.pdf", type: "pdf", date: "--", size: "245 KB" },
-    { id: "de4", name: "Lumona ERP", type: "app", date: "--", size: "--" },
-    { id: "de5", name: "TDN Quick Commerce", type: "app", date: "--", size: "--" },
-    { id: "de6", name: "Digital Invitation", type: "app", date: "--", size: "--" },
-    { id: "de7", name: "Sewain Rental", type: "app", date: "--", size: "--" },
   ],
   Documents: [
     { id: "do1", name: "Career_Plan_2026.pdf", type: "pdf", date: "May 1, 2026", size: "1.1 MB" },

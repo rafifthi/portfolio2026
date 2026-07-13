@@ -15,8 +15,6 @@ const apps = [
   { id: "photos", name: "Photos", icon: "Image", color: "#a78bfa", img: "/dock/photos-dark.png" },
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55", img: "/dock/music.png" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937", img: "/dock/terminal.png" },
-  { id: "lumona", name: "Lumona ERP", icon: "Box", color: "#3b82f6", img: null },
-  { id: "invitation", name: "Digital Invitation", icon: "Mail", color: "#d4a574", img: null },
   { id: "github", name: "GitHub", icon: "GitBranch", color: "#333", img: null },
   { id: "linkedin", name: "LinkedIn", icon: "Link", color: "#0077b5", img: null },
   { id: "twitter", name: "Twitter", icon: "MessageCircle", color: "#1da1f2", img: null },

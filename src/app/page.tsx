@@ -19,7 +19,6 @@ import Readme from "@/components/apps/Readme";
 import AboutRafif from "@/components/apps/AboutRafif";
 import Wife from "@/components/apps/Wife";
 import CV from "@/components/apps/CV";
-import CaseViewer from "@/components/apps/CaseViewer";
 import MenuDropdown from "@/components/MenuDropdown";
 import Onboarding from "@/components/Onboarding";
 import BootScreen from "@/components/BootScreen";
@@ -29,11 +28,6 @@ import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { WindowState } from "@/lib/types";
 import { browserImageUrl, CmsEntry, PortfolioEntryData } from "@/lib/cms";
-
-import LumonaMDX, { metadata as lumonaMetadata } from "@content/cases/lumona.mdx";
-import TDNMDX, { metadata as tdnMetadata } from "@content/cases/tdn.mdx";
-import InvitationMDX, { metadata as invitationMetadata } from "@content/cases/invitation.mdx";
-import SewainMDX, { metadata as sewainMetadata } from "@content/cases/sewain.mdx";
 
 interface AppComponentProps {
   windowId: string;
@@ -57,18 +51,6 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   readme: { title: "README.txt", icon: "FileText", color: "#6b7280", width: 520, height: 640, component: Readme },
   wife: { title: "wife", icon: "Heart", color: "#ec4899", width: 520, height: 640, component: Wife },
   cv: { title: "CV.pdf", icon: "FileText", color: "#ef4444", width: 640, height: 720, component: CV },
-  "lumona-case": { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 640, component: () => (
-    <CaseViewer metadata={lumonaMetadata} Content={LumonaMDX} />
-  )},
-  "siti-case": { title: "TDN Quick Commerce", icon: "ShoppingBag", color: "#f97316", width: 720, height: 640, component: () => (
-    <CaseViewer metadata={tdnMetadata} Content={TDNMDX} />
-  )},
-  "invitation-case": { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 720, height: 640, component: () => (
-    <CaseViewer metadata={invitationMetadata} Content={InvitationMDX} />
-  )},
-  "sewain-case": { title: "Sewain Rental", icon: "Home", color: "#3b82f6", width: 720, height: 640, component: () => (
-    <CaseViewer metadata={sewainMetadata} Content={SewainMDX} />
-  )},
   // Dock apps
   finder: { title: "Finder", icon: "FolderOpen", color: "#60a5fa", width: 640, height: 440, component: Finder },
   mail: { title: "Mail", icon: "Mail", color: "#3b82f6", width: 560, height: 540, component: Mail },
@@ -78,9 +60,6 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   terminal: { title: "Terminal", icon: "Terminal", color: "#1f2937", width: 600, height: 420, component: Terminal },
   lumona: { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 520, component: LumonaERP },
   invitation: { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 640, height: 520, component: DigitalInvitation },
-  sewain: { title: "Sewain Rental", icon: "Home", color: "#3b82f6", width: 640, height: 520, component: () => (
-    <CaseViewer metadata={sewainMetadata} Content={SewainMDX} />
-  )},
   apps: { title: "Spotlight", icon: "Search", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
   settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
@@ -94,8 +73,6 @@ const DOCK_ITEMS = [
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937" },
   { id: "separator", name: "", icon: "", color: "", isSeparator: true },
-  { id: "lumona", name: "Lumona ERP", icon: "Box", color: "#3b82f6" },
-  { id: "invitation", name: "Digital Invitation", icon: "Mail", color: "#d4a574" },
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
@@ -152,7 +129,7 @@ export default function Home() {
     fetch("/api/content?type=portfolio", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: { entries?: CmsEntry<PortfolioEntryData>[] } | null) => {
-        if (!cancelled && payload?.entries?.length) {
+        if (!cancelled && payload?.entries) {
           setPortfolioEntries(payload.entries);
         }
       })
@@ -179,34 +156,10 @@ export default function Home() {
     [portfolioEntries]
   );
 
-  const allDesktopItems = useMemo(() => {
-    const normalize = (value: string) =>
-      value.toLowerCase().replace(/[^a-z0-9]+/g, "");
-    const cmsKeys = Array.from(new Set(
-      portfolioEntries.flatMap((entry) => [
-        normalize(entry.slug),
-        normalize(entry.title),
-        normalize(entry.data.title || ""),
-        normalize(entry.data.desktop?.label || ""),
-      ]).filter(Boolean)
-    ));
-    const staticItems = desktopItems.filter((item) => {
-      if (!item.appId.endsWith("-case")) return true;
-      return ![
-        normalize(item.id),
-        normalize(item.appId.replace(/-case$/, "")),
-        normalize(item.label),
-      ].some((key) =>
-        cmsKeys.some((cmsKey) =>
-          cmsKey === key ||
-          (key.length >= 5 && cmsKey.startsWith(key)) ||
-          (cmsKey.length >= 5 && key.startsWith(cmsKey))
-        )
-      );
-    });
-
-    return [...staticItems, ...cmsDesktopItems];
-  }, [cmsDesktopItems, portfolioEntries]);
+  const allDesktopItems = useMemo(
+    () => [...desktopItems, ...cmsDesktopItems],
+    [cmsDesktopItems]
+  );
 
   const getAppConfig = useCallback(
     (appId: string) => {

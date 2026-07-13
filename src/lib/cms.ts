@@ -70,6 +70,7 @@ export interface PortfolioDesktopData {
 export interface PortfolioEntryData {
   title: string;
   banner: string;
+  projectUrl?: string;
   bannerMedia?: CmsImageMetadata;
   meta: PortfolioMetaItem[];
   blocks: NotionBlock[];
