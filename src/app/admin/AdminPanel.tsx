@@ -1,6 +1,8 @@
 "use client";
 
-import { DragEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { DragEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import {
   CmsEntry,
   CmsEntryInput,
@@ -9,6 +11,7 @@ import {
   NoteData,
   PortfolioEntryData,
   browserImageUrl,
+  croppedCloudinaryUrl,
   slugify,
 } from "@/lib/cms";
 import { NotionBlock } from "@/lib/types";
@@ -362,7 +365,7 @@ export default function AdminPanel() {
         throw new Error(data.error || "Upload failed.");
       }
       setMessage("Image uploaded.");
-      return data.url;
+      return data.url || "";
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Upload failed.");
       return "";
@@ -387,19 +390,17 @@ export default function AdminPanel() {
 
       if (target === "gallery") {
         setData<GalleryImageData>((current) => ({ ...current, src: data.url || "" }));
-      } else {
+      } else if (target === "portfolio-banner") {
         setData<PortfolioEntryData>((current) => ({
           ...current,
-          banner: target === "portfolio-banner" ? data.url || "" : current.banner,
-          desktop: {
-            ...current.desktop,
-            image: target === "portfolio-icon" ? data.url || "" : current.desktop.image || data.url || "",
-          },
+          banner: data.url || "",
         }));
       }
-      setMessage("Image uploaded.");
+      setMessage(target === "portfolio-icon" ? "Icon uploaded. Adjust the crop, then apply it." : "Image uploaded.");
+      return data.url;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Upload failed.");
+      return "";
     } finally {
       setBusy(false);
     }
@@ -1026,9 +1027,40 @@ function PortfolioForm({
   metaText: string;
   setMetaText: (value: string) => void;
   uploadBanner: (file: File) => void;
-  uploadIcon: (file: File) => void;
+  uploadIcon: (file: File) => Promise<string>;
   uploadInline: (file: File) => Promise<string>;
 }) {
+  const [cropSource, setCropSource] = useState("");
+  const [crop, setCrop] = useState<Crop>({ unit: "%", x: 10, y: 10, width: 80, height: 80 });
+  const [croppedArea, setCroppedArea] = useState<PixelCrop | null>(null);
+  const cropImageRef = useRef<HTMLImageElement>(null);
+
+  async function beginIconCrop(file: File) {
+    const url = await uploadIcon(file);
+    if (!url) return;
+    setCropSource(url);
+    setCrop({ unit: "%", x: 10, y: 10, width: 80, height: 80 });
+    setCroppedArea(null);
+  }
+
+  function applyIconCrop() {
+    const image = cropImageRef.current;
+    if (!cropSource || !croppedArea || !image) return;
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    const url = croppedCloudinaryUrl(cropSource, {
+      x: croppedArea.x * scaleX,
+      y: croppedArea.y * scaleY,
+      width: croppedArea.width * scaleX,
+      height: croppedArea.height * scaleY,
+    });
+    setData((current) => ({
+      ...current,
+      desktop: { ...current.desktop, image: url },
+    }));
+    setCropSource("");
+  }
+
   return (
     <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -1058,7 +1090,42 @@ function PortfolioForm({
             <span className="mb-1 block text-xs font-medium text-white/50">Desktop Image</span>
             <input value={data.desktop.image} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, image: event.target.value } }))} className={inputClass()} />
           </label>
-          <FileInput label="Upload Icon" onFile={uploadIcon} />
+          <div className="md:col-span-2 flex items-center gap-3">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]">
+              {data.desktop.image && <img src={browserImageUrl(data.desktop.image)} alt="Portfolio desktop icon preview" className="h-full w-full object-cover" />}
+            </div>
+            <FileInput label="Upload icon image" onFile={beginIconCrop} />
+            {data.desktop.image && (
+              <button type="button" onClick={() => { setCropSource(data.desktop.image); setCrop({ unit: "%", x: 10, y: 10, width: 80, height: 80 }); setCroppedArea(null); }} className="rounded-md border border-white/10 px-3 py-2 text-sm text-white/65 hover:bg-white/10">
+                Adjust crop
+              </button>
+            )}
+          </div>
+
+          {cropSource && (
+            <div className="md:col-span-2 space-y-4 border-t border-white/10 pt-4">
+              <div>
+                <div className="text-sm font-medium text-white">Crop icon</div>
+                <div className="mt-1 text-xs text-white/45">Drag inside the selection to move it. Drag any corner or edge to resize freely.</div>
+              </div>
+              <div className="flex min-h-80 items-center justify-center overflow-auto rounded-lg bg-black/30 p-4">
+                <ReactCrop
+                  crop={crop}
+                  onChange={(_pixelCrop, percentCrop) => setCrop(percentCrop)}
+                  onComplete={(pixelCrop) => setCroppedArea(pixelCrop)}
+                  minWidth={24}
+                  minHeight={24}
+                  ruleOfThirds
+                >
+                  <img ref={cropImageRef} src={cropSource} alt="Crop portfolio icon" className="max-h-[520px] max-w-full object-contain" />
+                </ReactCrop>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" disabled={!croppedArea} onClick={applyIconCrop} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50">Apply crop</button>
+                <button type="button" onClick={() => setCropSource("")} className="rounded-md border border-white/10 px-4 py-2 text-sm text-white/65 hover:bg-white/10">Cancel</button>
+              </div>
+            </div>
+          )}
           <label>
             <span className="mb-1 block text-xs font-medium text-white/50">Width</span>
             <input type="number" value={data.desktop.width} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, width: Number(event.target.value) } }))} className={inputClass()} />
