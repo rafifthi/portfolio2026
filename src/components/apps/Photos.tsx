@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@/components/Icon";
 import { photos } from "@/lib/data";
 import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
-import { CmsEntry, GalleryImageData } from "@/lib/cms";
+import { browserImageUrl, CmsEntry, GalleryImageData } from "@/lib/cms";
 import { Photo } from "@/lib/types";
 
 const gradients = [
@@ -21,7 +21,7 @@ const gradients = [
 
 function PhotoTile({ item, index }: { item: Photo; index: number }) {
   if (item.src) {
-    return <img src={item.src} alt={item.title} className="h-full w-full object-cover" draggable={false} />;
+    return <img src={browserImageUrl(item.src)} alt={item.title} className="h-full w-full object-cover" draggable={false} />;
   }
 
   return <div className="h-full w-full" style={{ background: gradients[index % gradients.length] }} />;
@@ -47,8 +47,8 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
           payload.entries.map((entry) => ({
             id: entry.id,
             src: entry.data.src,
-            title: entry.data.title || entry.title,
-            date: entry.data.date,
+            title: "",
+            date: "",
           }))
         );
       })
@@ -85,8 +85,8 @@ export default function Photos({ isMobile = false }: { isMobile?: boolean }) {
                   <PhotoTile item={photo} index={allPhotos.indexOf(photo)} />
                 </div>
                 <div className="mt-4 text-center">
-                  <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>
-                  <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>
+                  {photo.title && <div className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{photo.title}</div>}
+                  {photo.date && <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{photo.date}</div>}
                 </div>
               </div>
             </>

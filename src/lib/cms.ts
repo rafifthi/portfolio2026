@@ -16,13 +16,7 @@ export interface CmsEntry<TData = unknown> {
 }
 
 export interface GalleryImageData {
-  title: string;
   src: string;
-  date: string;
-  alt?: string;
-  caption?: string;
-  tags?: string[];
-  featured?: boolean;
 }
 
 export interface NoteData {
@@ -78,3 +72,10 @@ export function slugify(value: string) {
     .replace(/(^-|-$)+/g, "");
 }
 
+export function browserImageUrl(value: string) {
+  if (!value.includes("/image/upload/") || value.includes("/image/upload/f_auto,q_auto/")) {
+    return value;
+  }
+
+  return value.replace("/image/upload/", "/image/upload/f_auto,q_auto/");
+}
