@@ -73,9 +73,23 @@ export function slugify(value: string) {
 }
 
 export function browserImageUrl(value: string) {
-  if (!value.includes("/image/upload/") || value.includes("/image/upload/f_auto,q_auto/")) {
+  if (!value.includes("/image/upload/") || value.includes("/f_auto,q_auto/")) {
     return value;
   }
 
   return value.replace("/image/upload/", "/image/upload/f_auto,q_auto/");
+}
+
+export function croppedCloudinaryUrl(
+  value: string,
+  crop: { x: number; y: number; width: number; height: number }
+) {
+  if (!value.includes("/image/upload/")) return value;
+  const transformation = `c_crop,x_${Math.round(crop.x)},y_${Math.round(crop.y)},w_${Math.round(crop.width)},h_${Math.round(crop.height)}`;
+
+  if (value.includes("/f_auto,q_auto/")) {
+    return value.replace("/f_auto,q_auto/", `/${transformation}/f_auto,q_auto/`);
+  }
+
+  return value.replace("/image/upload/", `/image/upload/${transformation}/f_auto,q_auto/`);
 }
