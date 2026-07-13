@@ -518,7 +518,6 @@ export default function Home() {
             y={isMobile ? Math.floor(i / 2) * 17 + 10 : item.y}
             width={isMobile ? 96 : item.width}
             onOpen={() => openApp(item.appId)}
-            disableDrag={isMobile}
             compact={isMobile}
           />
         ))}
