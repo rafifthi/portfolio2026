@@ -13,13 +13,13 @@ export const siteUrl: string = process.env.NEXT_PUBLIC_SITE_URL
     : "http://localhost:3000";
 
 export const siteConfig = {
-  name: "Rafif Fathi Misbah",
-  shortName: "Rafifthi",
-  title: "Rafif Fathi Misbah — Product Manager & Designer",
+  name: "Rafif Fathi",
+  shortName: "Rafif",
+  title: "Rafif Fathi",
   description:
-    "Interactive macOS-inspired portfolio of Rafif Fathi Misbah, a product manager and designer with 3.5+ years in SaaS and ERP. Explore case studies, CV, and projects.",
+    "I turn messy retail operations into products people actually use. PM & designer, open for freelance.",
   keywords: [
-    "Rafif Fathi Misbah",
+    "Rafif Fathi",
     "Rafifthi",
     "Product Manager",
     "Product Designer",
