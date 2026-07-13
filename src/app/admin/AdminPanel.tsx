@@ -57,6 +57,7 @@ function emptyData(type: CmsEntryType): FormState {
       data: {
         title: "",
         banner: "",
+        projectUrl: "",
         meta: [
           { label: "Role", value: "" },
           { label: "Status", value: "" },
@@ -1432,6 +1433,22 @@ function PortfolioForm({
           {data.banner ? <img src={data.banner} alt={data.title} className="h-full w-full object-cover" /> : null}
         </div>
       </div>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-white/50">Project URL</span>
+        <input
+          type="url"
+          value={data.projectUrl || ""}
+          onChange={(event) =>
+            setData((current) => ({ ...current, projectUrl: event.target.value }))
+          }
+          placeholder="https://live-app.example or https://figma.com/design/..."
+          className={inputClass()}
+        />
+        <span className="mt-1 block text-xs text-white/35">
+          Optional. Paste the live app or Figma prototype URL, including https://.
+        </span>
+      </label>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label>
