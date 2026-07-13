@@ -1,24 +1,28 @@
 "use client";
 
-import { DragEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { DragEvent, FormEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from "react";
 import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import {
   CmsEntry,
   CmsEntryInput,
   CmsEntryType,
+  CmsImageMetadata,
   GalleryImageData,
   NoteData,
   PortfolioEntryData,
   browserImageUrl,
   croppedCloudinaryUrl,
   slugify,
+  uncroppedCloudinaryUrl,
 } from "@/lib/cms";
 import { NotionBlock } from "@/lib/types";
 import { Icon } from "@/components/Icon";
 import { BlockEditor, EditorBlock, fromEditorBlocks, toEditorBlocks } from "./BlockEditor";
 
 type FormState = CmsEntryInput<GalleryImageData | NoteData | PortfolioEntryData>;
+type UploadTarget = "gallery" | "portfolio-banner" | "portfolio-icon";
+type UploadedImage = { url: string; media: CmsImageMetadata };
 
 const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "gallery", label: "Gallery", icon: "Image" },
@@ -114,6 +118,57 @@ async function jsonFetch<T>(url: string, init?: RequestInit) {
     throw new Error(data.error || "Request failed.");
   }
   return data;
+}
+
+function cmsInputFromEntry(
+  entry: CmsEntry,
+  overrides: Partial<CmsEntryInput> = {}
+): CmsEntryInput {
+  return {
+    type: entry.type,
+    slug: entry.slug,
+    title: entry.title,
+    status: entry.status,
+    sortOrder: entry.sortOrder,
+    data: entry.data,
+    ...overrides,
+  };
+}
+
+async function uploadImageFile(file: File, target: UploadTarget): Promise<UploadedImage> {
+  const body = new FormData();
+  body.set("file", file);
+  body.set("target", target);
+  const response = await fetch("/api/admin/upload", { method: "POST", body });
+  const data = (await response.json().catch(() => ({}))) as Partial<UploadedImage> & {
+    error?: string;
+  };
+  if (!response.ok || !data.url || !data.media) {
+    throw new Error(data.error || `Failed to upload ${file.name}.`);
+  }
+  return data as UploadedImage;
+}
+
+async function mapWithConcurrency<TItem, TResult>(
+  items: TItem[],
+  limit: number,
+  mapper: (item: TItem, index: number) => Promise<TResult>
+) {
+  const results = new Array<TResult>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  );
+  return results;
 }
 
 export default function AdminPanel() {
@@ -356,16 +411,9 @@ export default function AdminPanel() {
     setBusy(true);
     setMessage("");
     try {
-      const body = new FormData();
-      body.set("file", file);
-      body.set("target", "portfolio-banner");
-      const response = await fetch("/api/admin/upload", { method: "POST", body });
-      const data = (await response.json()) as { url?: string; error?: string };
-      if (!response.ok || !data.url) {
-        throw new Error(data.error || "Upload failed.");
-      }
+      const data = await uploadImageFile(file, "portfolio-banner");
       setMessage("Image uploaded.");
-      return data.url || "";
+      return data.url;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Upload failed.");
       return "";
@@ -374,26 +422,29 @@ export default function AdminPanel() {
     }
   }
 
-  async function uploadImage(file: File, target: "gallery" | "portfolio-banner" | "portfolio-icon") {
+  async function uploadImage(file: File, target: UploadTarget) {
     setBusy(true);
     setMessage("");
 
     try {
-      const body = new FormData();
-      body.set("file", file);
-      body.set("target", target);
-      const response = await fetch("/api/admin/upload", { method: "POST", body });
-      const data = (await response.json()) as { url?: string; error?: string };
-      if (!response.ok || !data.url) {
-        throw new Error(data.error || "Upload failed.");
-      }
+      const data = await uploadImageFile(file, target);
 
       if (target === "gallery") {
-        setData<GalleryImageData>((current) => ({ ...current, src: data.url || "" }));
+        setData<GalleryImageData>((current) => ({
+          ...current,
+          src: data.url,
+          media: data.media,
+        }));
       } else if (target === "portfolio-banner") {
         setData<PortfolioEntryData>((current) => ({
           ...current,
-          banner: data.url || "",
+          banner: data.url,
+          bannerMedia: data.media,
+        }));
+      } else {
+        setData<PortfolioEntryData>((current) => ({
+          ...current,
+          desktop: { ...current.desktop, media: data.media },
         }));
       }
       setMessage(target === "portfolio-icon" ? "Icon uploaded. Adjust the crop, then apply it." : "Image uploaded.");
@@ -413,29 +464,54 @@ export default function AdminPanel() {
 
     try {
       const startOrder = filteredEntries.length;
-      for (const [index, file] of files.entries()) {
-        const body = new FormData();
-        body.set("file", file);
-        body.set("target", "gallery");
-        const response = await fetch("/api/admin/upload", { method: "POST", body });
-        const uploaded = (await response.json()) as { url?: string; error?: string };
-        if (!response.ok || !uploaded.url) throw new Error(uploaded.error || `Failed to upload ${file.name}.`);
+      const uploadStartedAt = Date.now();
+      let completed = 0;
+      const results = await mapWithConcurrency(files, 3, async (file, index) => {
+        try {
+          const uploaded = await uploadImageFile(file, "gallery");
+          return { ok: true as const, file, index, uploaded };
+        } catch (error) {
+          return {
+            ok: false as const,
+            file,
+            index,
+            error: error instanceof Error ? error.message : "Upload failed.",
+          };
+        } finally {
+          completed += 1;
+          setMessage(`Uploading ${completed}/${files.length} photos...`);
+        }
+      });
+      const successful = results.filter((result) => result.ok);
+      const failed = results.filter((result) => !result.ok);
 
-        const internalName = `${Date.now()}-${index}-${file.name.replace(/\.[^.]+$/, "") || "photo"}`;
-        await jsonFetch("/api/admin/content", {
+      if (successful.length) {
+        await jsonFetch("/api/admin/content/batch", {
           method: "POST",
           body: JSON.stringify({
-            type: "gallery",
-            title: internalName,
-            slug: slugify(internalName),
-            status: "published",
-            sortOrder: startOrder + index,
-            data: { src: uploaded.url },
+            operation: "create",
+            entries: successful.map(({ file, index, uploaded }) => {
+              const internalName = `${uploadStartedAt}-${index}-${file.name.replace(/\.[^.]+$/, "") || "photo"}`;
+              return {
+                type: "gallery",
+                title: internalName,
+                slug: slugify(internalName),
+                status: "published",
+                sortOrder: startOrder + index,
+                data: { src: uploaded.url, media: uploaded.media },
+              };
+            }),
           }),
         });
       }
       await loadEntries("gallery");
-      setMessage(`${files.length} photo${files.length === 1 ? "" : "s"} added.`);
+      if (failed.length) {
+        setMessage(
+          `${successful.length} added, ${failed.length} failed: ${failed.map(({ file }) => file.name).join(", ")}`
+        );
+      } else {
+        setMessage(`${successful.length} photo${successful.length === 1 ? "" : "s"} added.`);
+      }
     } catch (error) {
       await loadEntries("gallery");
       setMessage(error instanceof Error ? error.message : "Upload failed.");
@@ -471,19 +547,82 @@ export default function AdminPanel() {
     setBusy(true);
     setMessage("Saving order...");
     try {
-      await Promise.all(
-        reordered.map((entry, index) =>
-          jsonFetch(`/api/admin/content/${entry.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ ...entry, sortOrder: index }),
-          })
-        )
-      );
+      await jsonFetch("/api/admin/content/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          operation: "update",
+          entries: reordered.map((entry, index) => ({
+            id: entry.id,
+            input: cmsInputFromEntry(entry, { sortOrder: index }),
+          })),
+        }),
+      });
       await loadEntries("gallery");
       setMessage("Order saved.");
     } catch (error) {
       await loadEntries("gallery");
       setMessage(error instanceof Error ? error.message : "Failed to save order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateGalleryData(entry: CmsEntry, data: GalleryImageData) {
+    setBusy(true);
+    setMessage("");
+    setEntries((current) =>
+      current.map((item) => (item.id === entry.id ? { ...item, data } : item))
+    );
+    try {
+      await jsonFetch(`/api/admin/content/${entry.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ...entry, data }),
+      });
+      await loadEntries("gallery");
+      setMessage("Photo updated.");
+    } catch (error) {
+      await loadEntries("gallery");
+      setMessage(error instanceof Error ? error.message : "Failed to update photo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function replaceGalleryLabel(label: string, replacement?: string) {
+    const normalizedReplacement = replacement?.trim();
+    const affected = filteredEntries.filter((entry) =>
+      ((entry.data as GalleryImageData).labels || []).includes(label)
+    );
+    if (!affected.length) return;
+
+    setBusy(true);
+    setMessage(normalizedReplacement ? "Renaming album..." : "Removing album...");
+    try {
+      await jsonFetch("/api/admin/content/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          operation: "update",
+          entries: affected.map((entry) => {
+            const data = entry.data as GalleryImageData;
+            const labels = Array.from(
+              new Set(
+                (data.labels || [])
+                  .map((item) => (item === label ? normalizedReplacement : item))
+                  .filter((item): item is string => Boolean(item))
+              )
+            );
+            return {
+              id: entry.id,
+              input: cmsInputFromEntry(entry, { data: { ...data, labels } }),
+            };
+          }),
+        }),
+      });
+      await loadEntries("gallery");
+      setMessage(normalizedReplacement ? "Album renamed." : "Album removed.");
+    } catch (error) {
+      await loadEntries("gallery");
+      setMessage(error instanceof Error ? error.message : "Failed to update album.");
     } finally {
       setBusy(false);
     }
@@ -550,7 +689,7 @@ export default function AdminPanel() {
             <div className="text-lg font-semibold text-white">Neon + Cloudinary Admin</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {message && <span className="text-sm text-white/60">{message}</span>}
+            {message && <span role="status" aria-live="polite" className="text-sm text-white/60">{message}</span>}
             <button onClick={logout} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10">
               Logout
             </button>
@@ -624,6 +763,8 @@ export default function AdminPanel() {
                 upload={uploadGalleryFiles}
                 remove={removeGalleryEntry}
                 reorder={reorderGallery}
+                update={updateGalleryData}
+                replaceLabel={replaceGalleryLabel}
               />
             ) : activeType === "notes" ? (
               <NotesManager
@@ -744,21 +885,113 @@ function FileInput({ label, onFile }: { label: string; onFile: (file: File) => v
   );
 }
 
+function CropModal({
+  source,
+  crop,
+  setCrop,
+  setCroppedArea,
+  imageRef,
+  canApply,
+  onApply,
+  onClose,
+}: {
+  source: string;
+  crop: Crop;
+  setCrop: (crop: Crop) => void;
+  setCroppedArea: (crop: PixelCrop) => void;
+  imageRef: RefObject<HTMLImageElement | null>;
+  canApply: boolean;
+  onApply: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="crop-dialog-title"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-white/15 bg-[#111722] shadow-2xl">
+        <div className="flex items-start gap-4 border-b border-white/10 px-5 py-4">
+          <div>
+            <h2 id="crop-dialog-title" className="text-base font-semibold text-white">Adjust portfolio crop</h2>
+            <p className="mt-1 text-xs text-white/45">Move and resize the selection. The saved crop is used by the portfolio thumbnail.</p>
+          </div>
+          <button type="button" autoFocus onClick={onClose} aria-label="Close crop dialog" className="ml-auto rounded-md p-2 text-white/55 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-sky-400">
+            <Icon name="X" size={17} />
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black/25 p-5">
+          <ReactCrop
+            crop={crop}
+            onChange={(_pixelCrop, percentCrop) => setCrop(percentCrop)}
+            onComplete={(pixelCrop) => setCroppedArea(pixelCrop)}
+            minWidth={24}
+            minHeight={24}
+            ruleOfThirds
+          >
+            <img
+              ref={imageRef}
+              src={browserImageUrl(source)}
+              alt="Crop portfolio thumbnail"
+              className="max-h-[calc(100vh-13rem)] max-w-full object-contain"
+              onLoad={(event) => {
+                const image = event.currentTarget;
+                setCroppedArea({
+                  unit: "px",
+                  x: image.width * 0.1,
+                  y: image.height * 0.1,
+                  width: image.width * 0.8,
+                  height: image.height * 0.8,
+                });
+              }}
+            />
+          </ReactCrop>
+        </div>
+        <div className="flex flex-col-reverse gap-2 border-t border-white/10 px-5 py-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className="rounded-md border border-white/10 px-4 py-2 text-sm font-medium text-white/65 hover:bg-white/10">Cancel</button>
+          <button type="button" disabled={!canApply} onClick={onApply} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40">Apply crop</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GalleryManager({
   entries,
   busy,
   upload,
   remove,
   reorder,
+  update,
+  replaceLabel,
 }: {
   entries: CmsEntry[];
   busy: boolean;
   upload: (files: File[]) => void;
   remove: (entry: CmsEntry) => void;
   reorder: (fromIndex: number, toIndex: number) => void;
+  update: (entry: CmsEntry, data: GalleryImageData) => void;
+  replaceLabel: (label: string, replacement?: string) => void;
 }) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
+  const labels = Array.from(
+    new Set(
+      entries.flatMap((entry) => (entry.data as GalleryImageData).labels || [])
+    )
+  ).sort((a, b) => a.localeCompare(b));
 
   function acceptFiles(files: FileList | null) {
     const images = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
@@ -771,12 +1004,70 @@ function GalleryManager({
     if (event.dataTransfer.files.length) acceptFiles(event.dataTransfer.files);
   }
 
+  function addLabel(entry: CmsEntry, rawLabel: string) {
+    const label = rawLabel.trim();
+    if (!label) return;
+    const data = entry.data as GalleryImageData;
+    const nextLabels = Array.from(new Set([...(data.labels || []), label]));
+    update(entry, { ...data, labels: nextLabels });
+  }
+
+  function toggleLabel(entry: CmsEntry, label: string) {
+    const data = entry.data as GalleryImageData;
+    const current = data.labels || [];
+    const nextLabels = current.includes(label)
+      ? current.filter((item) => item !== label)
+      : [...current, label];
+    update(entry, { ...data, labels: nextLabels });
+  }
+
+  function renameLabel(label: string) {
+    const replacement = window.prompt("Rename album", label)?.trim();
+    if (!replacement || replacement === label) return;
+    replaceLabel(label, replacement);
+  }
+
+  function deleteLabel(label: string) {
+    if (!window.confirm(`Delete the “${label}” album? Photos will stay in the gallery.`)) return;
+    replaceLabel(label);
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-white">Gallery photos</h1>
-        <p className="mt-1 text-sm text-white/50">Drop photos to upload. Drag thumbnails to arrange their order.</p>
+        <p className="mt-1 text-sm text-white/50">Upload, arrange, favorite, and group photos into label-based albums.</p>
       </div>
+
+      <section className="rounded-xl border border-white/10 bg-white/[0.025] p-4" aria-labelledby="albums-heading">
+        <div className="flex items-center gap-2">
+          <Icon name="Tags" size={17} className="text-white/55" />
+          <h2 id="albums-heading" className="text-sm font-medium text-white">Albums</h2>
+          <span className="text-xs text-white/35">Labels become albums on the portfolio.</span>
+        </div>
+        {labels.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {labels.map((label) => {
+              const count = entries.filter((entry) =>
+                ((entry.data as GalleryImageData).labels || []).includes(label)
+              ).length;
+              return (
+                <div key={label} className="inline-flex items-center overflow-hidden rounded-md border border-white/10 bg-white/[0.04]">
+                  <span className="px-2.5 py-1.5 text-xs text-white/75">{label} <span className="text-white/35">{count}</span></span>
+                  <button type="button" disabled={busy} onClick={() => renameLabel(label)} aria-label={`Rename ${label} album`} className="border-l border-white/10 p-1.5 text-white/45 hover:bg-white/10 hover:text-white disabled:opacity-40">
+                    <Icon name="Pencil" size={13} />
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => deleteLabel(label)} aria-label={`Delete ${label} album`} className="border-l border-white/10 p-1.5 text-white/45 hover:bg-rose-400/15 hover:text-rose-200 disabled:opacity-40">
+                    <Icon name="X" size={13} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-white/35">No albums yet. Open Labels on a photo to create the first one.</p>
+        )}
+      </section>
 
       <section
         onDragEnter={(event) => {
@@ -814,7 +1105,8 @@ function GalleryManager({
       {entries.length ? (
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-label="Gallery photo order">
           {entries.map((entry, index) => {
-            const src = (entry.data as GalleryImageData).src;
+            const data = entry.data as GalleryImageData;
+            const src = data.src;
             return (
               <article
                 key={entry.id}
@@ -835,24 +1127,82 @@ function GalleryManager({
                     setDraggingIndex(null);
                   }
                 }}
-                className={`group relative aspect-square overflow-hidden rounded-lg border bg-white/[0.04] transition ${
+                className={`group relative flex min-h-56 flex-col overflow-visible rounded-lg border bg-white/[0.035] transition ${
                   draggingIndex === index ? "border-sky-400 opacity-40" : "border-white/10"
                 }`}
               >
-                {src && <img src={browserImageUrl(src)} alt="" className="h-full w-full object-cover" draggable={false} />}
-                <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-black/65 p-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                  <span className="mr-auto flex items-center gap-1 text-xs text-white/80">
-                    <Icon name="Grip" size={14} /> {index + 1}
-                  </span>
-                  <button type="button" disabled={busy || index === 0} onClick={() => reorder(index, index - 1)} aria-label={`Move photo ${index + 1} earlier`} className="rounded p-1.5 text-white/80 hover:bg-white/15 disabled:opacity-30">
-                    <Icon name="ArrowLeft" size={14} />
+                <div className="relative aspect-square overflow-hidden rounded-t-lg bg-[#171b22]">
+                  {src ? (
+                    <img src={browserImageUrl(src)} alt={data.title || "Gallery photo"} className="h-full w-full object-cover" draggable={false} />
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-white/25">
+                      <Icon name="ImageOff" size={24} />
+                      <span className="text-xs">Image unavailable</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => update(entry, { ...data, favorite: !data.favorite })}
+                    aria-label={data.favorite ? `Remove photo ${index + 1} from favorites` : `Add photo ${index + 1} to favorites`}
+                    aria-pressed={Boolean(data.favorite)}
+                    className={`absolute right-2 top-2 rounded-full p-2 shadow-lg transition ${data.favorite ? "bg-white text-rose-500" : "bg-black/55 text-white/80 hover:bg-black/75"}`}
+                  >
+                    <Icon name="Heart" size={15} className={data.favorite ? "fill-current" : ""} />
                   </button>
-                  <button type="button" disabled={busy || index === entries.length - 1} onClick={() => reorder(index, index + 1)} aria-label={`Move photo ${index + 1} later`} className="rounded p-1.5 text-white/80 hover:bg-white/15 disabled:opacity-30">
-                    <Icon name="ArrowRight" size={14} />
-                  </button>
-                  <button type="button" disabled={busy} onClick={() => remove(entry)} aria-label={`Delete photo ${index + 1}`} className="rounded p-1.5 text-rose-200 hover:bg-rose-400/20 disabled:opacity-30">
-                    <Icon name="Trash2" size={14} />
-                  </button>
+                </div>
+                <div className="flex min-h-24 flex-1 flex-col gap-2 p-2.5">
+                  <div className="flex flex-wrap gap-1">
+                    {(data.labels || []).map((label) => (
+                      <span key={label} className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[10px] text-white/65">{label}</span>
+                    ))}
+                    {!data.labels?.length && <span className="text-[10px] text-white/30">No album</span>}
+                  </div>
+                  <div className="mt-auto flex items-center gap-1">
+                    <span className="mr-auto flex items-center gap-1 text-xs text-white/45">
+                      <Icon name="Grip" size={13} /> {index + 1}
+                    </span>
+                    <details className="group/labels relative">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 rounded px-2 py-1.5 text-xs text-white/60 hover:bg-white/10">
+                        <Icon name="Tags" size={13} /> Labels
+                      </summary>
+                      <div className="absolute bottom-9 right-0 z-20 w-52 rounded-lg border border-white/15 bg-[#151a23] p-2 shadow-2xl">
+                        {labels.length > 0 && (
+                          <div className="mb-2 max-h-36 space-y-0.5 overflow-auto">
+                            {labels.map((label) => {
+                              const checked = (data.labels || []).includes(label);
+                              return (
+                                <button key={label} type="button" disabled={busy} onClick={() => toggleLabel(entry, label)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-white/70 hover:bg-white/10 disabled:opacity-40">
+                                  <Icon name={checked ? "SquareCheck" : "Square"} size={14} className={checked ? "text-sky-300" : "text-white/30"} />
+                                  <span className="truncate">{label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <form onSubmit={(event) => {
+                          event.preventDefault();
+                          const formData = new FormData(event.currentTarget);
+                          addLabel(entry, String(formData.get("label") || ""));
+                          event.currentTarget.reset();
+                        }} className="flex gap-1 border-t border-white/10 pt-2">
+                          <input name="label" aria-label="New album label" placeholder="New label" className="min-w-0 flex-1 rounded border border-white/10 bg-white/[0.05] px-2 py-1.5 text-xs text-white outline-none placeholder:text-white/25 focus:border-sky-400" />
+                          <button disabled={busy} aria-label="Create and assign label" className="rounded bg-sky-500 px-2 text-white hover:bg-sky-400 disabled:opacity-40">
+                            <Icon name="Plus" size={13} />
+                          </button>
+                        </form>
+                      </div>
+                    </details>
+                    <button type="button" disabled={busy || index === 0} onClick={() => reorder(index, index - 1)} aria-label={`Move photo ${index + 1} earlier`} className="rounded p-1.5 text-white/55 hover:bg-white/10 disabled:opacity-25">
+                      <Icon name="ArrowLeft" size={14} />
+                    </button>
+                    <button type="button" disabled={busy || index === entries.length - 1} onClick={() => reorder(index, index + 1)} aria-label={`Move photo ${index + 1} later`} className="rounded p-1.5 text-white/55 hover:bg-white/10 disabled:opacity-25">
+                      <Icon name="ArrowRight" size={14} />
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => remove(entry)} aria-label={`Delete photo ${index + 1}`} className="rounded p-1.5 text-white/45 hover:bg-rose-400/15 hover:text-rose-200 disabled:opacity-30">
+                      <Icon name="Trash2" size={14} />
+                    </button>
+                  </div>
                 </div>
               </article>
             );
@@ -1048,15 +1398,22 @@ function PortfolioForm({
     if (!cropSource || !croppedArea || !image) return;
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
-    const url = croppedCloudinaryUrl(cropSource, {
+    const cropMetadata = {
       x: croppedArea.x * scaleX,
       y: croppedArea.y * scaleY,
       width: croppedArea.width * scaleX,
       height: croppedArea.height * scaleY,
-    });
+    };
+    const url = croppedCloudinaryUrl(cropSource, cropMetadata);
     setData((current) => ({
       ...current,
-      desktop: { ...current.desktop, image: url },
+      desktop: {
+        ...current.desktop,
+        image: url,
+        media: current.desktop.media
+          ? { ...current.desktop.media, crop: cropMetadata }
+          : undefined,
+      },
     }));
     setCropSource("");
   }
@@ -1096,35 +1453,23 @@ function PortfolioForm({
             </div>
             <FileInput label="Upload icon image" onFile={beginIconCrop} />
             {data.desktop.image && (
-              <button type="button" onClick={() => { setCropSource(data.desktop.image); setCrop({ unit: "%", x: 10, y: 10, width: 80, height: 80 }); setCroppedArea(null); }} className="rounded-md border border-white/10 px-3 py-2 text-sm text-white/65 hover:bg-white/10">
+              <button type="button" onClick={() => { setCropSource(uncroppedCloudinaryUrl(data.desktop.image)); setCrop({ unit: "%", x: 10, y: 10, width: 80, height: 80 }); setCroppedArea(null); }} className="rounded-md border border-white/10 px-3 py-2 text-sm text-white/65 hover:bg-white/10">
                 Adjust crop
               </button>
             )}
           </div>
 
           {cropSource && (
-            <div className="md:col-span-2 space-y-4 border-t border-white/10 pt-4">
-              <div>
-                <div className="text-sm font-medium text-white">Crop icon</div>
-                <div className="mt-1 text-xs text-white/45">Drag inside the selection to move it. Drag any corner or edge to resize freely.</div>
-              </div>
-              <div className="flex min-h-80 items-center justify-center overflow-auto rounded-lg bg-black/30 p-4">
-                <ReactCrop
-                  crop={crop}
-                  onChange={(_pixelCrop, percentCrop) => setCrop(percentCrop)}
-                  onComplete={(pixelCrop) => setCroppedArea(pixelCrop)}
-                  minWidth={24}
-                  minHeight={24}
-                  ruleOfThirds
-                >
-                  <img ref={cropImageRef} src={cropSource} alt="Crop portfolio icon" className="max-h-[520px] max-w-full object-contain" />
-                </ReactCrop>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" disabled={!croppedArea} onClick={applyIconCrop} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50">Apply crop</button>
-                <button type="button" onClick={() => setCropSource("")} className="rounded-md border border-white/10 px-4 py-2 text-sm text-white/65 hover:bg-white/10">Cancel</button>
-              </div>
-            </div>
+            <CropModal
+              source={cropSource}
+              crop={crop}
+              setCrop={setCrop}
+              setCroppedArea={setCroppedArea}
+              imageRef={cropImageRef}
+              canApply={Boolean(croppedArea)}
+              onApply={applyIconCrop}
+              onClose={() => setCropSource("")}
+            />
           )}
           <label>
             <span className="mb-1 block text-xs font-medium text-white/50">Width</span>

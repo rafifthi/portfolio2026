@@ -18,8 +18,14 @@ CLOUDINARY_PORTFOLIO_ICON_FOLDER="portfolio-cms/portfolio-icons"
 `ADMIN_SESSION_SECRET` can be omitted locally, but production should set it to a
 different long random value from `ADMIN_PASSWORD`.
 
-The app creates the `cms_entries` table automatically on first CMS request. If
-you prefer to create it manually in Neon, run `docs/cms-schema.sql`.
+Apply the versioned schema migration before starting or deploying the app:
+
+```bash
+npm run db:migrate
+```
+
+Public and admin requests never run schema DDL. For a manual Neon setup, run
+`docs/cms-schema.sql` instead.
 
 ## Seeding the CMS with the current site content
 
@@ -51,3 +57,14 @@ Cloudinary uploads use fixed folders by upload target:
 - `gallery` -> `CLOUDINARY_GALLERY_FOLDER`
 - `portfolio-banner` -> `CLOUDINARY_PORTFOLIO_BANNER_FOLDER`
 - `portfolio-icon` -> `CLOUDINARY_PORTFOLIO_ICON_FOLDER`
+
+Uploads accept image files up to 20 MB. New gallery, banner, and portfolio icon
+uploads retain Cloudinary metadata in the entry JSON alongside the display URL:
+`publicId`, original URL, version, dimensions, format, byte size, resource type,
+original filename, and crop coordinates when applicable. Existing entries with
+URL-only image data remain compatible.
+
+Gallery bulk upload runs at most three Cloudinary uploads concurrently, then
+creates successful CMS entries in one database transaction. Reordering and
+label-wide updates also use one batch transaction instead of one request per
+photo.

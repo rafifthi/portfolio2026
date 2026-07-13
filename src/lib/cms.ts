@@ -15,8 +15,33 @@ export interface CmsEntry<TData = unknown> {
   updatedAt: string;
 }
 
+export interface CmsImageCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CmsImageMetadata {
+  publicId: string;
+  originalUrl: string;
+  version?: number;
+  width: number;
+  height: number;
+  format?: string;
+  bytes?: number;
+  resourceType?: string;
+  originalFilename?: string;
+  crop?: CmsImageCrop;
+}
+
 export interface GalleryImageData {
   src: string;
+  title?: string;
+  date?: string;
+  favorite?: boolean;
+  labels?: string[];
+  media?: CmsImageMetadata;
 }
 
 export interface NoteData {
@@ -39,11 +64,13 @@ export interface PortfolioDesktopData {
   width: number;
   icon?: string;
   color?: string;
+  media?: CmsImageMetadata;
 }
 
 export interface PortfolioEntryData {
   title: string;
   banner: string;
+  bannerMedia?: CmsImageMetadata;
   meta: PortfolioMetaItem[];
   blocks: NotionBlock[];
   desktop: PortfolioDesktopData;
@@ -72,6 +99,24 @@ export function slugify(value: string) {
     .replace(/(^-|-$)+/g, "");
 }
 
+export function normalizeCmsEntryInput(
+  body: Partial<CmsEntryInput>
+): CmsEntryInput | null {
+  const type = body.type;
+  if (!type || !isCmsEntryType(type)) return null;
+  const title = String(body.title ?? "").trim();
+  if (!title) return null;
+
+  return {
+    type,
+    title,
+    slug: String(body.slug || slugify(title)).trim(),
+    status: body.status === "published" ? "published" : "draft",
+    sortOrder: Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
+    data: body.data ?? {},
+  };
+}
+
 export function browserImageUrl(value: string) {
   if (!value.includes("/image/upload/") || value.includes("/f_auto,q_auto/")) {
     return value;
@@ -80,16 +125,24 @@ export function browserImageUrl(value: string) {
   return value.replace("/image/upload/", "/image/upload/f_auto,q_auto/");
 }
 
+export function uncroppedCloudinaryUrl(value: string) {
+  return value.replace(
+    /\/c_crop,x_-?\d+,y_-?\d+,w_\d+,h_\d+(?=\/)/g,
+    ""
+  );
+}
+
 export function croppedCloudinaryUrl(
   value: string,
   crop: { x: number; y: number; width: number; height: number }
 ) {
   if (!value.includes("/image/upload/")) return value;
+  const source = uncroppedCloudinaryUrl(value);
   const transformation = `c_crop,x_${Math.round(crop.x)},y_${Math.round(crop.y)},w_${Math.round(crop.width)},h_${Math.round(crop.height)}`;
 
-  if (value.includes("/f_auto,q_auto/")) {
-    return value.replace("/f_auto,q_auto/", `/${transformation}/f_auto,q_auto/`);
+  if (source.includes("/f_auto,q_auto/")) {
+    return source.replace("/f_auto,q_auto/", `/${transformation}/f_auto,q_auto/`);
   }
 
-  return value.replace("/image/upload/", `/image/upload/${transformation}/f_auto,q_auto/`);
+  return source.replace("/image/upload/", `/image/upload/${transformation}/f_auto,q_auto/`);
 }

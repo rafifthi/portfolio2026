@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" role="img" aria-labelledby="title desc">
+  <title id="title">Portfolio banner placeholder</title>
+  <desc id="desc">A neutral placeholder shown until a portfolio banner is uploaded.</desc>
+  <rect width="800" height="300" fill="#20242b"/>
+  <path d="M325 191l47-49 37 37 26-27 61 64H296z" fill="#303640"/>
+  <circle cx="454" cy="91" r="20" fill="#3a414c"/>
+  <rect x="294" y="58" width="212" height="158" rx="16" fill="none" stroke="#69717d" stroke-width="5"/>
+</svg>

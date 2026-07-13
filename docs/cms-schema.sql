@@ -1,3 +1,6 @@
+-- Baseline schema mirrored by scripts/migrate-cms-schema.mjs.
+-- Prefer `npm run db:migrate` so applied versions are recorded.
+
 CREATE TABLE IF NOT EXISTS cms_entries (
   id text PRIMARY KEY,
   type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio')),
@@ -13,4 +16,3 @@ CREATE TABLE IF NOT EXISTS cms_entries (
 
 CREATE INDEX IF NOT EXISTS cms_entries_type_status_sort_idx
 ON cms_entries (type, status, sort_order, updated_at DESC);
-
