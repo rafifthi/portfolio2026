@@ -1451,10 +1451,27 @@ function PortfolioForm({
       </label>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label>
-          <span className="mb-1 block text-xs font-medium text-white/50">Meta, one per line: Label: Value</span>
-          <textarea value={metaText} onChange={(event) => setMetaText(event.target.value)} className={inputClass("min-h-32 font-mono")} />
-        </label>
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-white/50">Meta, one per line: Label: Value</span>
+            <textarea value={metaText} onChange={(event) => setMetaText(event.target.value)} className={inputClass("min-h-32 font-mono")} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-white/50">Project URL</span>
+            <input
+              type="url"
+              value={data.projectUrl || ""}
+              onChange={(event) =>
+                setData((current) => ({ ...current, projectUrl: event.target.value }))
+              }
+              placeholder="https://live-app.example or https://figma.com/design/..."
+              className={inputClass()}
+            />
+            <span className="mt-1 block text-xs text-white/35">
+              Optional. Paste the live app or Figma prototype URL, including https://.
+            </span>
+          </label>
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="md:col-span-2">
             <span className="mb-1 block text-xs font-medium text-white/50">Desktop Label</span>

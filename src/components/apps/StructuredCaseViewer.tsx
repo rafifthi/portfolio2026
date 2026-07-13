@@ -186,8 +186,32 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
           {data.title || entry.title}
         </h1>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-3 border-b pb-4 mb-4" style={{ borderColor: "var(--border-subtle)" }}>
-          {(data.meta || []).map((item) => <MetaBadge key={item.label} label={item.label} value={item.value} />)}
+        <div className="mb-6 flex flex-wrap items-end gap-x-6 gap-y-3 border-b pb-4" style={{ borderColor: "var(--border-subtle)" }}>
+          <div className="flex min-w-0 flex-1 flex-wrap gap-x-6 gap-y-3">
+            {(data.meta || []).map((item) => <MetaBadge key={item.label} label={item.label} value={item.value} />)}
+          </div>
+
+          {projectLink && (
+            <a
+              href={projectLink.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={projectLink.href}
+              aria-label={`${projectLink.label}: ${projectLink.href}`}
+              className="flex max-w-full items-center gap-2 rounded-lg border px-3 py-2 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-72"
+              style={{
+                background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
+                outlineColor: "var(--accent)",
+              }}
+            >
+              <Icon name={projectLink.isFigma ? "PenTool" : "ExternalLink"} size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+              <span className="min-w-0 truncate text-sm font-medium" style={{ color: "var(--accent)" }}>
+                {projectLink.displayUrl}
+              </span>
+              <Icon name="ArrowUpRight" size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+            </a>
+          )}
         </div>
 
         {projectLink && (
