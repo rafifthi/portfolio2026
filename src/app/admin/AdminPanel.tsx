@@ -8,6 +8,7 @@ import {
   GalleryImageData,
   NoteData,
   PortfolioEntryData,
+  browserImageUrl,
   slugify,
 } from "@/lib/cms";
 import { NotionBlock } from "@/lib/types";
@@ -120,6 +121,7 @@ export default function AdminPanel() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [activeType, setActiveType] = useState<CmsEntryType>("gallery");
+  const [notesFolder, setNotesFolder] = useState<string | null>(null);
   const [entries, setEntries] = useState<CmsEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyData("gallery"));
@@ -178,6 +180,15 @@ export default function AdminPanel() {
       setJsonError("");
       setMetaText(metaToText((next.data as PortfolioEntryData).meta));
     }
+  }
+
+  function startNewNote(folder: string) {
+    const next = emptyData("notes");
+    setSelectedId(null);
+    setForm({
+      ...next,
+      data: { ...(next.data as NoteData), folder },
+    });
   }
 
   function selectEntry(entry: CmsEntry) {
@@ -268,6 +279,14 @@ export default function AdminPanel() {
             title: form.title,
             meta: textToMeta(metaText),
             blocks: payloadBlocks,
+          },
+        };
+      } else if (form.type === "notes") {
+        payload = {
+          ...form,
+          data: {
+            ...(form.data as NoteData),
+            title: form.title,
           },
         };
       }
@@ -545,6 +564,7 @@ export default function AdminPanel() {
                   key={tab.type}
                   onClick={() => {
                     setActiveType(tab.type);
+                    if (tab.type === "notes") setNotesFolder(null);
                     startNew(tab.type);
                   }}
                   className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition"
@@ -562,7 +582,7 @@ export default function AdminPanel() {
               ))}
             </div>
 
-            {activeType !== "gallery" && (
+            {activeType === "portfolio" && (
               <button
                 onClick={() => startNew(activeType)}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15"
@@ -573,7 +593,7 @@ export default function AdminPanel() {
             )}
 
             <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-auto">
-              {activeType !== "gallery" && filteredEntries.map((entry) => (
+              {activeType === "portfolio" && filteredEntries.map((entry) => (
                 <button
                   key={entry.id}
                   onClick={() => selectEntry(entry)}
@@ -587,7 +607,7 @@ export default function AdminPanel() {
                   </div>
                 </button>
               ))}
-              {activeType !== "gallery" && filteredEntries.length === 0 && (
+              {activeType === "portfolio" && filteredEntries.length === 0 && (
                 <div className="rounded-md border border-dashed border-white/10 p-4 text-center text-sm text-white/35">
                   No entries yet.
                 </div>
@@ -603,6 +623,27 @@ export default function AdminPanel() {
                 upload={uploadGalleryFiles}
                 remove={removeGalleryEntry}
                 reorder={reorderGallery}
+              />
+            ) : activeType === "notes" ? (
+              <NotesManager
+                entries={filteredEntries}
+                folder={notesFolder}
+                setFolder={setNotesFolder}
+                form={form}
+                selectedId={selectedId}
+                busy={busy}
+                selectEntry={selectEntry}
+                startNewNote={startNewNote}
+                save={save}
+                remove={() => {
+                  void removeSelected().then(() => startNewNote(notesFolder || ""));
+                }}
+                setTitle={(title) => {
+                  setCommon("title", title);
+                  if (!selectedId) setCommon("slug", slugify(title));
+                }}
+                setStatus={(status) => setCommon("status", status)}
+                setData={(updater) => setData<NoteData>(updater)}
               />
             ) : (
             <form onSubmit={save} className="mx-auto max-w-5xl space-y-5">
@@ -636,13 +677,6 @@ export default function AdminPanel() {
                   </select>
                 </label>
               </section>
-
-              {form.type === "notes" && (
-                <NotesForm
-                  data={form.data as NoteData}
-                  setData={(updater) => setData<NoteData>(updater)}
-                />
-              )}
 
               {form.type === "portfolio" && (
                 <PortfolioForm
@@ -804,7 +838,7 @@ function GalleryManager({
                   draggingIndex === index ? "border-sky-400 opacity-40" : "border-white/10"
                 }`}
               >
-                {src && <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />}
+                {src && <img src={browserImageUrl(src)} alt="" className="h-full w-full object-cover" draggable={false} />}
                 <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-black/65 p-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                   <span className="mr-auto flex items-center gap-1 text-xs text-white/80">
                     <Icon name="Grip" size={14} /> {index + 1}
@@ -830,28 +864,137 @@ function GalleryManager({
   );
 }
 
-function NotesForm({
-  data,
+function NotesManager({
+  entries,
+  folder,
+  setFolder,
+  form,
+  selectedId,
+  busy,
+  selectEntry,
+  startNewNote,
+  save,
+  remove,
+  setTitle,
+  setStatus,
   setData,
 }: {
-  data: NoteData;
+  entries: CmsEntry[];
+  folder: string | null;
+  setFolder: (folder: string | null) => void;
+  form: FormState;
+  selectedId: string | null;
+  busy: boolean;
+  selectEntry: (entry: CmsEntry) => void;
+  startNewNote: (folder: string) => void;
+  save: (event: FormEvent) => void;
+  remove: () => void;
+  setTitle: (title: string) => void;
+  setStatus: (status: "draft" | "published") => void;
   setData: (updater: (data: NoteData) => NoteData) => void;
 }) {
+  const folders = Array.from(
+    new Set(entries.map((entry) => (entry.data as NoteData).folder).filter(Boolean))
+  );
+  const folderEntries = folder
+    ? entries.filter((entry) => (entry.data as NoteData).folder === folder)
+    : [];
+  const noteData = form.data as NoteData;
+
+  function createFolder() {
+    const value = window.prompt("Folder name")?.trim();
+    if (!value) return;
+    if (value.includes("/") || value.includes("\\")) {
+      window.alert("Folder names cannot contain slashes. Nested folders are not supported yet.");
+      return;
+    }
+    setFolder(value);
+    startNewNote(value);
+  }
+
+  if (!folder) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-5">
+        <div className="flex items-start gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-white">Notes</h1>
+            <p className="mt-1 text-sm text-white/50">Choose a folder before opening or creating a note.</p>
+          </div>
+          <button type="button" onClick={createFolder} className="ml-auto flex items-center gap-2 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400">
+            <Icon name="FolderPlus" size={16} /> New folder
+          </button>
+        </div>
+        {folders.length ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {folders.map((name) => {
+              const count = entries.filter((entry) => (entry.data as NoteData).folder === name).length;
+              return (
+                <button key={name} type="button" onClick={() => { setFolder(name); startNewNote(name); }} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 text-left hover:border-sky-400/40 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-sky-400">
+                  <Icon name="Folder" size={24} className="text-amber-300" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-white">{name}</span>
+                    <span className="mt-0.5 block text-xs text-white/40">{count} {count === 1 ? "note" : "notes"}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-white/10 py-14 text-center text-sm text-white/40">No folders yet.</div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-3">
-      <label>
-        <span className="mb-1 block text-xs font-medium text-white/50">Folder</span>
-        <input value={data.folder} onChange={(event) => setData((current) => ({ ...current, folder: event.target.value }))} className={inputClass()} />
-      </label>
-      <label>
-        <span className="mb-1 block text-xs font-medium text-white/50">Date</span>
-        <input value={data.date} onChange={(event) => setData((current) => ({ ...current, date: event.target.value }))} className={inputClass()} />
-      </label>
-      <label className="md:col-span-3">
-        <span className="mb-1 block text-xs font-medium text-white/50">Content</span>
-        <textarea value={data.content} onChange={(event) => setData((current) => ({ ...current, content: event.target.value }))} className={inputClass("min-h-96 font-mono leading-relaxed")} />
-      </label>
-    </section>
+    <div className="mx-auto max-w-6xl space-y-4">
+      <div className="flex items-center gap-2 text-sm">
+        <button type="button" onClick={() => setFolder(null)} className="rounded px-2 py-1 text-white/55 hover:bg-white/10 hover:text-white">Notes</button>
+        <Icon name="ChevronRight" size={14} className="text-white/30" />
+        <span className="font-medium text-white">{folder}</span>
+        <button type="button" onClick={() => startNewNote(folder)} className="ml-auto flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15">
+          <Icon name="FilePlus2" size={15} /> New note
+        </button>
+      </div>
+
+      <div className="grid min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-white/[0.025] md:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="border-b border-white/10 p-3 md:border-b-0 md:border-r">
+          <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-white/35">Files</div>
+          <div className="space-y-1">
+            {folderEntries.map((entry) => (
+              <button key={entry.id} type="button" onClick={() => selectEntry(entry)} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${selectedId === entry.id ? "bg-sky-500/20 text-sky-100" : "text-white/65 hover:bg-white/[0.06]"}`}>
+                <Icon name="FileText" size={16} />
+                <span className="truncate">{entry.title}</span>
+              </button>
+            ))}
+            {!folderEntries.length && <div className="px-2 py-6 text-center text-xs text-white/35">This folder is empty.</div>}
+          </div>
+        </div>
+
+        <form onSubmit={save} className="flex min-w-0 flex-col">
+          <div className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-[minmax(0,1fr)_150px]">
+            <label>
+              <span className="mb-1 block text-xs font-medium text-white/45">File name</span>
+              <input value={form.type === "notes" ? form.title : ""} onChange={(event) => setTitle(event.target.value)} className={inputClass()} required />
+            </label>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-white/45">Status</span>
+              <select value={form.status} onChange={(event) => setStatus(event.target.value === "published" ? "published" : "draft")} className={inputClass()}>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+          </div>
+          <div className="flex-1 p-4">
+            <textarea value={noteData.content} onChange={(event) => setData((current) => ({ ...current, folder, title: form.title, content: event.target.value }))} placeholder="Write your note..." className={inputClass("h-full min-h-96 resize-none font-mono leading-relaxed")} />
+          </div>
+          <div className="flex items-center gap-3 border-t border-white/10 p-4">
+            <button disabled={busy} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60">{busy ? "Saving..." : "Save note"}</button>
+            {selectedId && <button type="button" disabled={busy} onClick={remove} className="rounded-md border border-rose-300/20 px-4 py-2 text-sm font-semibold text-rose-200 hover:bg-rose-400/10">Delete</button>}
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 

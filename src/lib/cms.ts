@@ -71,3 +71,11 @@ export function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 }
+
+export function browserImageUrl(value: string) {
+  if (!value.includes("/image/upload/") || value.includes("/image/upload/f_auto,q_auto/")) {
+    return value;
+  }
+
+  return value.replace("/image/upload/", "/image/upload/f_auto,q_auto/");
+}

@@ -8,7 +8,7 @@ import { CmsEntry, NoteData } from "@/lib/cms";
 import { Note } from "@/lib/types";
 
 export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
-  const [selectedFolder, setSelectedFolder] = useState("Career");
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [cmsNotes, setCmsNotes] = useState<Note[]>([]);
@@ -37,7 +37,7 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
     return merged;
   }, [cmsNotes]);
   const folders = useMemo(() => Array.from(new Set(allNotes.map((note) => note.folder))), [allNotes]);
-  const activeFolder = folders.includes(selectedFolder) ? selectedFolder : folders[0] || selectedFolder;
+  const activeFolder = selectedFolder && folders.includes(selectedFolder) ? selectedFolder : folders[0] || "";
 
   const folderNotes = useMemo(
     () => allNotes.filter((n) => n.folder === activeFolder),
@@ -162,104 +162,72 @@ export default function Notes({ isMobile = false }: { isMobile?: boolean }) {
     );
   }
 
+  const q = search.trim().toLowerCase();
+  const visibleNotes = q
+    ? folderNotes.filter((note) => `${note.title} ${note.content}`.toLowerCase().includes(q))
+    : folderNotes;
+
+  if (!selectedFolder) {
+    return (
+      <div className="h-full overflow-auto p-5" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+        <h2 className="text-xl font-semibold">My notes</h2>
+        <div className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>{folders.length} folders</div>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {folders.map((folder) => {
+            const count = allNotes.filter((note) => note.folder === folder).length;
+            return (
+              <button key={folder} onClick={() => { setSelectedFolder(folder); setSelectedNoteId(null); }} className="flex items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:bg-[var(--bg-hover)]" style={{ borderColor: "var(--border-subtle)", background: "var(--bg-sidebar)" }}>
+                <Icon name="Folder" size={25} style={{ color: "rgba(245,158,11,0.95)" }} />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{folder}</span>
+                  <span className="mt-0.5 block text-xs" style={{ color: "var(--text-tertiary)" }}>{count} {count === 1 ? "file" : "files"}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="h-full flex transition-colors duration-300"
-      style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}
-    >
-      {/* Folders Sidebar */}
-      <div
-        className="w-44 flex flex-col py-3 px-2 gap-0.5 border-r transition-colors duration-300"
-        style={{ background: "rgba(245,200,100,0.12)", borderColor: "var(--border-subtle)" }}
-      >
-        <div className="text-[10px] font-bold uppercase tracking-wider px-2 mb-2" style={{ color: "var(--text-tertiary)" }}>Folders</div>
-        {folders.map((folder) => (
-          <button
-            key={folder}
-            onClick={() => {
-              setSelectedFolder(folder);
-              setSelectedNoteId(null);
-            }}
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors text-left"
-            style={{
-              background: activeFolder === folder ? "rgba(245,158,11,0.85)" : "transparent",
-              color: activeFolder === folder ? "#fff" : "var(--text-secondary)",
-            }}
-          >
-            <Icon name="Folder" size={16} />
-            <span>{folder}</span>
-            <span className="ml-auto text-xs" style={{ color: activeFolder === folder ? "rgba(255,255,255,0.7)" : "var(--text-tertiary)" }}>
-              {allNotes.filter((n) => n.folder === folder).length}
-            </span>
-          </button>
-        ))}
+    <div className="flex h-full min-h-0 flex-col" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+      <div className="flex h-12 items-center gap-1 border-b px-3" style={{ borderColor: "var(--border-subtle)" }}>
+        <button onClick={() => { setSelectedFolder(null); setSelectedNoteId(null); setSearch(""); }} className="rounded-md px-2 py-1 text-sm hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)" }}>My notes</button>
+        <Icon name="ChevronRight" size={15} style={{ color: "var(--text-tertiary)" }} />
+        <span className="text-sm font-medium">{selectedFolder}</span>
       </div>
-
-      {/* Notes List */}
-      <div
-        className="w-56 flex flex-col border-r transition-colors duration-300"
-        style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-subtle)" }}
-      >
-        <div className="p-2">
-          <div className="flex items-center rounded-md px-2 py-1.5 gap-2 transition-colors duration-300" style={{ background: "var(--bg-input)" }}>
-            <Icon name="Search" size={14} style={{ color: "var(--text-tertiary)" }} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search"
-              className="bg-transparent outline-none text-sm w-full placeholder:text-[var(--text-tertiary)]"
-              style={{ color: "var(--text-primary)" }}
-            />
+      <div className="grid min-h-0 flex-1 grid-cols-[230px_minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col border-r" style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-subtle)" }}>
+          <div className="p-2">
+            <div className="flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: "var(--bg-input)" }}>
+              <Icon name="Search" size={14} style={{ color: "var(--text-tertiary)" }} />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search files" className="w-full bg-transparent text-sm outline-none" />
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {visibleNotes.map((note) => (
+              <button key={note.id} onClick={() => setSelectedNoteId(note.id)} className="flex w-full items-center gap-2 border-b px-3 py-3 text-left" style={{ borderColor: "var(--border-subtle)", background: selectedNoteId === note.id ? "var(--bg-hover)" : "transparent" }}>
+                <Icon name="FileText" size={16} style={{ color: "var(--text-tertiary)" }} />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{note.title}</span>
+                  <span className="mt-0.5 block text-xs" style={{ color: "var(--text-tertiary)" }}>{note.date}</span>
+                </span>
+              </button>
+            ))}
           </div>
         </div>
-        <div className="flex-1 overflow-auto">
-          {folderNotes.map((note) => (
-            <button
-              key={note.id}
-              onClick={() => setSelectedNoteId(note.id)}
-              className="w-full text-left px-4 py-3 border-b transition-colors"
-              style={{
-                background: selectedNoteId === note.id ? "var(--bg-hover)" : "transparent",
-                borderColor: "var(--border-subtle)",
-              }}
-            >
-              <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{note.title}</div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>{note.date}</div>
-              <div className="text-xs mt-1 truncate" style={{ color: "var(--text-secondary)" }}>{note.content.slice(0, 60)}...</div>
-            </button>
-          ))}
+        <div className="min-w-0 overflow-auto">
+          {selectedNote ? (
+            <article className="mx-auto max-w-3xl px-7 py-6">
+              <h1 className="text-xl font-semibold">{selectedNote.title}</h1>
+              <div className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>{selectedNote.date}</div>
+              <div className="mt-6 whitespace-pre-wrap text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{selectedNote.content}</div>
+            </article>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--text-tertiary)" }}>Select a file to open</div>
+          )}
         </div>
-      </div>
-
-      {/* Editor */}
-      <div className="flex-1 flex flex-col min-w-0" style={{ background: "var(--bg-app)" }}>
-        {selectedNote ? (
-          <>
-            <div className="px-6 py-4 border-b transition-colors duration-300" style={{ borderColor: "var(--border-subtle)" }}>
-              <input
-                type="text"
-                value={selectedNote.title}
-                readOnly
-                className="bg-transparent outline-none text-lg font-semibold w-full"
-                style={{ color: "var(--text-primary)" }}
-              />
-              <div className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>{selectedNote.date}</div>
-            </div>
-            <div className="flex-1 p-6 overflow-auto">
-              <textarea
-                value={selectedNote.content}
-                readOnly
-                className="w-full h-full bg-transparent outline-none text-sm leading-relaxed resize-none"
-                style={{ color: "var(--text-secondary)" }}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-sm" style={{ color: "var(--text-tertiary)" }}>
-            Select a note to view
-          </div>
-        )}
       </div>
     </div>
   );

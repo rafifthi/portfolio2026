@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@/components/Icon";
 import { photos } from "@/lib/data";
 import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
-import { CmsEntry, GalleryImageData } from "@/lib/cms";
+import { browserImageUrl, CmsEntry, GalleryImageData } from "@/lib/cms";
 import { Photo } from "@/lib/types";
 
 const gradients = [
@@ -21,7 +21,7 @@ const gradients = [
 
 function PhotoTile({ item, index }: { item: Photo; index: number }) {
   if (item.src) {
-    return <img src={item.src} alt={item.title} className="h-full w-full object-cover" draggable={false} />;
+    return <img src={browserImageUrl(item.src)} alt={item.title} className="h-full w-full object-cover" draggable={false} />;
   }
 
   return <div className="h-full w-full" style={{ background: gradients[index % gradients.length] }} />;
