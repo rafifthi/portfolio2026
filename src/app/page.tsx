@@ -26,13 +26,14 @@ import Settings from "@/components/apps/Settings";
 import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
-import { WindowState } from "@/lib/types";
+import { DesktopItem, WindowState } from "@/lib/types";
 import { browserImageUrl, CmsEntry, PortfolioEntryData } from "@/lib/cms";
 
 interface AppComponentProps {
   windowId: string;
   onClose: () => void;
   onOpenApp: (appId: string) => void;
+  finderItems?: DesktopItem[];
   isMaximized?: boolean;
   isMobile?: boolean;
 }
@@ -545,6 +546,7 @@ export default function Home() {
                 windowId={win.id}
                 onClose={() => closeWindow(win.id)}
                 onOpenApp={openApp}
+                finderItems={allDesktopItems}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
               />

@@ -32,9 +32,12 @@ export interface DesktopItem {
 export interface FinderItem {
   id: string;
   name: string;
-  type: "folder" | "file" | "image" | "pdf" | "app";
-  date: string;
-  size?: string;
+  kind: string;
+  icon: string;
+  color: string;
+  target:
+    | { type: "app"; appId: string }
+    | { type: "link"; href: string };
 }
 
 export interface Note {

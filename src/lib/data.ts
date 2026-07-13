@@ -1,40 +1,10 @@
-import { DesktopItem, FinderItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
+import { DesktopItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
 
 export const desktopItems: DesktopItem[] = [
   { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
   { id: "wife", label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, appId: "wife" },
   { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 62, y: 58, width: 160, appId: "cv" },
 ];
-
-export const finderSections: Record<string, FinderItem[]> = {
-  Recents: [
-    { id: "r1", name: "CV.pdf", type: "pdf", date: "Today, 2:30 PM", size: "245 KB" },
-    { id: "r2", name: "Portfolio.png", type: "image", date: "Today, 10:15 AM", size: "1.2 MB" },
-    { id: "r3", name: "Project_Lumona", type: "folder", date: "Yesterday, 4:00 PM", size: "--" },
-    { id: "r4", name: "Notes_Goals.txt", type: "file", date: "Yesterday, 9:00 AM", size: "4 KB" },
-  ],
-  Downloads: [
-    { id: "d1", name: "Next.js_Docs.pdf", type: "pdf", date: "May 10, 2026", size: "3.4 MB" },
-    { id: "d2", name: "Design_Assets.zip", type: "file", date: "May 9, 2026", size: "45 MB" },
-    { id: "d3", name: "Screenshot_001.png", type: "image", date: "May 8, 2026", size: "890 KB" },
-  ],
-  Desktop: [
-    { id: "de1", name: "README.txt", type: "file", date: "--", size: "2 KB" },
-    { id: "de2", name: "wife", type: "folder", date: "--", size: "--" },
-    { id: "de3", name: "CV.pdf", type: "pdf", date: "--", size: "245 KB" },
-  ],
-  Documents: [
-    { id: "do1", name: "Career_Plan_2026.pdf", type: "pdf", date: "May 1, 2026", size: "1.1 MB" },
-    { id: "do2", name: "Learning_Resources", type: "folder", date: "Apr 28, 2026", size: "--" },
-    { id: "do3", name: "Cover_Letter.docx", type: "file", date: "Apr 25, 2026", size: "18 KB" },
-  ],
-  Applications: [
-    { id: "a1", name: "Lumona ERP", type: "app", date: "--", size: "--" },
-    { id: "a2", name: "Digital Invitation", type: "app", date: "--", size: "--" },
-    { id: "a3", name: "Terminal", type: "app", date: "--", size: "--" },
-    { id: "a4", name: "Notes", type: "app", date: "--", size: "--" },
-  ],
-};
 
 export const notes: Note[] = [
   {
