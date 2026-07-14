@@ -46,6 +46,12 @@ const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "wife", label: "Wife", icon: "Heart" },
 ];
 
+const singletonTypes = new Set<CmsEntryType>(["about", "wife"]);
+
+function isSingletonType(type: CmsEntryType) {
+  return singletonTypes.has(type);
+}
+
 function emptyData(type: CmsEntryType): FormState {
   if (type === "notes") {
     return {
@@ -290,6 +296,7 @@ export default function AdminPanel() {
       const others = current.filter((entry) => entry.type !== type);
       return [...others, ...data.entries];
     });
+    return data.entries;
   }
 
   useEffect(() => {
@@ -354,12 +361,26 @@ export default function AdminPanel() {
     }
   }
 
-  function showModule(type: CmsEntryType) {
+  async function showModule(type: CmsEntryType) {
     setActiveType(type);
     setSelectedId(null);
     setForm(emptyData(type));
-    setEditorOpen(false);
+    setEditorOpen(isSingletonType(type));
     if (type === "notes") setNotesFolder(null);
+
+    if (!isSingletonType(type)) return;
+
+    try {
+      const moduleEntries = await loadEntries(type);
+      const existingEntry = moduleEntries[0];
+      if (existingEntry) {
+        selectEntry(existingEntry);
+      } else {
+        startNew(type);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to load content.");
+    }
   }
 
   function closeEditor() {
@@ -946,17 +967,25 @@ export default function AdminPanel() {
             ) : editorOpen ? (
             <form onSubmit={save} className="mx-auto max-w-5xl space-y-5">
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                <button
-                  type="button"
-                  onClick={closeEditor}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-white/55 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-sky-400"
-                >
-                  <Icon name="ArrowLeft" size={16} />
-                  Back to {tabs.find((tab) => tab.type === activeType)?.label}
-                </button>
-                <div className="h-4 w-px bg-white/10" />
+                {!isSingletonType(activeType) && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={closeEditor}
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-white/55 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-sky-400"
+                    >
+                      <Icon name="ArrowLeft" size={16} />
+                      Back to {tabs.find((tab) => tab.type === activeType)?.label}
+                    </button>
+                    <div className="h-4 w-px bg-white/10" />
+                  </>
+                )}
                 <h1 className="text-lg font-semibold text-white">
-                  {selectedId ? form.title || "Untitled entry" : `New ${activeType === "portfolio" ? "portfolio entry" : activeType === "about" ? "About entry" : "Wife entry"}`}
+                  {isSingletonType(activeType)
+                    ? tabs.find((tab) => tab.type === activeType)?.label
+                    : selectedId
+                      ? form.title || "Untitled entry"
+                      : "New portfolio entry"}
                 </h1>
               </div>
               <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-4">
@@ -1028,16 +1057,16 @@ export default function AdminPanel() {
 
               <div className="sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-[#090d16]/95 py-4">
                 <button disabled={busy} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60">
-                  {busy ? "Saving..." : "Save Entry"}
+                  {busy ? "Saving..." : isSingletonType(activeType) ? "Save changes" : "Save Entry"}
                 </button>
-                {selectedId && (
+                {selectedId && !isSingletonType(activeType) && (
                   <button type="button" disabled={busy} onClick={removeSelected} className="rounded-md border border-rose-300/20 px-4 py-2 text-sm font-semibold text-rose-200 hover:bg-rose-400/10">
                     Delete
                   </button>
                 )}
               </div>
             </form>
-            ) : (
+            ) : isSingletonType(activeType) ? null : (
               <EntryTable
                 type={activeType}
                 entries={filteredEntries}
