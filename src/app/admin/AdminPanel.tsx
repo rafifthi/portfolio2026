@@ -406,6 +406,35 @@ export default function AdminPanel() {
     }
   }
 
+  async function removeNotesFolder(folder: string) {
+    const folderEntries = entries.filter(
+      (entry) => entry.type === "notes" && (entry.data as NoteData).folder === folder
+    );
+    if (!folderEntries.length) return;
+
+    setBusy(true);
+    setMessage("");
+    try {
+      await jsonFetch("/api/admin/content/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          operation: "delete",
+          entries: folderEntries.map((entry) => ({ id: entry.id })),
+        }),
+      });
+      await loadEntries("notes");
+      setNotesFolder(null);
+      startNew("notes");
+      showSuccessToast(
+        `Folder deleted, ${folderEntries.length} ${folderEntries.length === 1 ? "note" : "notes"} removed.`
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to delete folder.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function switchBlocksMode(toJson: boolean) {
     if (toJson) {
       setJsonDraft(JSON.stringify(fromEditorBlocks(blocks), null, 2));
@@ -822,6 +851,7 @@ export default function AdminPanel() {
                 selectEntry={selectEntry}
                 startNewNote={startNewNote}
                 save={save}
+                deleteFolder={removeNotesFolder}
                 remove={() => {
                   void removeSelected().then(() => startNewNote(notesFolder || ""));
                 }}
@@ -1316,6 +1346,7 @@ function NotesManager({
   selectEntry,
   startNewNote,
   save,
+  deleteFolder,
   remove,
   setTitle,
   setStatus,
@@ -1330,6 +1361,7 @@ function NotesManager({
   selectEntry: (entry: CmsEntry) => void;
   startNewNote: (folder: string) => void;
   save: (event: FormEvent) => void;
+  deleteFolder: (folder: string) => Promise<void>;
   remove: () => void;
   setTitle: (title: string) => void;
   setStatus: (status: "draft" | "published") => void;
@@ -1352,6 +1384,15 @@ function NotesManager({
     }
     setFolder(value);
     startNewNote(value);
+  }
+
+  function removeFolder() {
+    if (!folder) return;
+    const count = folderEntries.length;
+    const confirmed = window.confirm(
+      `Delete “${folder}” and its ${count} ${count === 1 ? "note" : "notes"}? This cannot be undone.`
+    );
+    if (confirmed) void deleteFolder(folder);
   }
 
   if (!folder) {
@@ -1396,6 +1437,14 @@ function NotesManager({
         <span className="font-medium text-white">{folder}</span>
         <button type="button" onClick={() => startNewNote(folder)} className="ml-auto flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15">
           <Icon name="FilePlus2" size={15} /> New note
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={removeFolder}
+          className="flex items-center gap-2 rounded-md border border-rose-300/20 px-3 py-2 text-sm font-medium text-rose-200 hover:bg-rose-400/10 disabled:opacity-40"
+        >
+          <Icon name="Trash2" size={15} /> Delete folder
         </button>
       </div>
 
