@@ -23,6 +23,7 @@ interface WindowProps {
   icon?: string;
   isMobile?: boolean;
   isTop?: boolean;
+  mobilePresentation?: "full" | "terminal" | "spotlight";
 }
 
 function WindowIcon({ icon, size }: { icon?: string; size: number }) {
@@ -51,9 +52,14 @@ export default function Window({
   icon,
   isMobile = false,
   isTop = true,
+  mobilePresentation = "full",
 }: WindowProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x, y });
+  const [mobileViewport, setMobileViewport] = useState<{
+    height: number;
+    bottomInset: number;
+  } | null>(null);
   const dragControls = useDragControls();
 
   useEffect(() => {
@@ -70,11 +76,47 @@ export default function Window({
     return () => window.removeEventListener("resize", clamp);
   }, [x, y, width, height]);
 
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const updateViewport = () => {
+      const viewport = window.visualViewport;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const bottomInset = viewport
+        ? Math.max(window.innerHeight - viewport.height - viewport.offsetTop, 0)
+        : 0;
+
+      setMobileViewport({ height: viewportHeight, bottomInset });
+    };
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("scroll", updateViewport);
+
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("scroll", updateViewport);
+    };
+  }, [isMobile]);
+
   if (isMinimized) return null;
 
   // ── iOS bottom sheet (mobile) ──────────────────────────────
   // The dim backdrop is rendered once by page.tsx (shared across sheets).
   if (isMobile) {
+    const availableHeight = Math.max(mobileViewport?.height ?? window.innerHeight, 180);
+    const cappedHeight = Math.max(availableHeight - 8, 180);
+    const sheetHeight =
+      mobilePresentation === "spotlight"
+        ? Math.min(560, cappedHeight, availableHeight * 0.68)
+        : Math.min(cappedHeight, availableHeight * 0.92);
+    const maxSheetHeight =
+      mobilePresentation === "terminal"
+        ? Math.min(520, cappedHeight, availableHeight * 0.72)
+        : sheetHeight;
+
     return (
         <motion.div
           data-window-id={id}
@@ -99,10 +141,10 @@ export default function Window({
             position: "fixed",
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: mobileViewport?.bottomInset ?? 0,
             zIndex,
-            height: "92dvh", // iOS "large detent" — uniform sheet height
-
+            height: mobilePresentation === "terminal" ? "auto" : sheetHeight,
+            maxHeight: maxSheetHeight,
             paddingBottom: "env(safe-area-inset-bottom)",
           }}
           className="window-glass rounded-t-[28px] overflow-hidden flex flex-col"
@@ -146,7 +188,9 @@ export default function Window({
 
           {/* Content — natively scrollable */}
           <div
-            className="flex-1 overflow-auto overscroll-contain relative"
+            className={`${
+              mobilePresentation === "terminal" ? "flex-none" : "flex-1"
+            } min-h-0 overflow-hidden relative`}
             style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
           >
             {children}

@@ -183,7 +183,7 @@ const ANIMATED: Record<string, (args: string[], ctx: AnimCtx) => Promise<void>> 
   },
 };
 
-export default function Terminal() {
+export default function Terminal({ isMobile = false }: { isMobile?: boolean }) {
   const [lines, setLines] = useState<TerminalLine[]>([
     { id: "init1", type: "output", text: "Last login: " + new Date().toLocaleString() },
     { id: "init2", type: "output", text: "" },
@@ -285,9 +285,9 @@ export default function Terminal() {
 
   return (
     <div
-      className="h-full flex flex-col terminal-bg text-white/90"
+      className={`${isMobile ? "max-h-[calc(72dvh-4rem)]" : "h-full"} flex flex-col overflow-hidden terminal-bg text-white/90`}
       onKeyDown={handleContainerKeyDown}
-      onClick={() => !animating && inputRef.current?.focus()}
+      onClick={() => !isMobile && !animating && inputRef.current?.focus()}
     >
       {/* Toolbar */}
       <div className="h-8 flex items-center px-3 bg-[#2d2d2d]/60 border-b border-white/5">
@@ -298,7 +298,13 @@ export default function Terminal() {
       </div>
 
       {/* Output */}
-      <div ref={scrollRef} className="flex-1 overflow-auto p-3 font-mono text-sm">
+      <div
+        ref={scrollRef}
+        className={`${
+          isMobile ? "min-h-40 flex-none" : "flex-1"
+        } max-h-[calc(72dvh-6rem)] overflow-auto overscroll-contain p-3 font-mono text-sm`}
+        style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
+      >
         {lines.map((line) => (
           <div
             key={line.id}
@@ -336,7 +342,7 @@ export default function Terminal() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               className="flex-1 bg-transparent outline-none text-white/80 font-mono"
-              autoFocus
+              autoFocus={!isMobile}
               spellCheck={false}
             />
           </div>

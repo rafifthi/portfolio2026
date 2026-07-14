@@ -7,6 +7,7 @@ import { siteLinks } from "@/lib/site";
 
 interface AppLauncherProps {
   onOpenApp: (appId: string) => void;
+  isMobile?: boolean;
 }
 
 const apps = [
@@ -45,7 +46,7 @@ const SOCIAL_URLS: Record<string, string> = {
   instagram: siteLinks.instagram,
 };
 
-export default function AppLauncher({ onOpenApp }: AppLauncherProps) {
+export default function AppLauncher({ onOpenApp, isMobile = false }: AppLauncherProps) {
   const { theme } = useTheme();
   const [query, setQuery] = useState("");
 
@@ -63,7 +64,7 @@ export default function AppLauncher({ onOpenApp }: AppLauncherProps) {
       style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}
     >
       {/* Spotlight-style big search */}
-      <div className="px-6 pt-6 pb-4">
+      <div className={isMobile ? "px-4 pt-4 pb-3" : "px-6 pt-6 pb-4"}>
         <div
           className="flex items-center gap-3 rounded-2xl px-5 py-4 border transition-colors duration-300"
           style={{
@@ -77,7 +78,7 @@ export default function AppLauncher({ onOpenApp }: AppLauncherProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Spotlight Search"
-            autoFocus
+            autoFocus={!isMobile}
             className="flex-1 bg-transparent outline-none text-lg font-medium placeholder:text-[var(--text-tertiary)] transition-colors duration-300"
             style={{ color: "var(--text-primary)" }}
           />
@@ -94,34 +95,39 @@ export default function AppLauncher({ onOpenApp }: AppLauncherProps) {
       </div>
 
       {/* Results with big icons */}
-      <div className="flex-1 overflow-auto px-6 pb-6">
-        <div className="grid grid-cols-4 gap-4">
+      <div className={`${isMobile ? "px-4 pb-4" : "px-6 pb-6"} min-h-0 flex-1 overflow-auto overscroll-contain`}>
+        <div className={`grid ${isMobile ? "grid-cols-3 gap-2" : "grid-cols-4 gap-4"}`}>
           {filtered.map((app) => {
             const imgSrc = getAppImg(app.id, theme);
             const socialUrl = SOCIAL_URLS[app.id];
             return (
               <button
+                type="button"
                 key={app.id}
                 onClick={() =>
                   socialUrl
                     ? window.open(socialUrl, "_blank", "noopener")
                     : onOpenApp(app.id)
                 }
-                className="flex flex-col items-center gap-3 p-4 rounded-2xl transition-colors duration-200 group"
+                className={`group flex min-w-0 flex-col items-center rounded-2xl transition-colors duration-200 ${
+                  isMobile ? "gap-2 p-2" : "gap-3 p-4"
+                }`}
                 style={{ background: "transparent" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
                 {imgSrc ? (
-                  <img
-                    src={imgSrc}
-                    alt={app.name}
-                    className="w-16 h-16 rounded-2xl shadow-lg object-cover transition-transform duration-200 group-hover:scale-110"
-                    draggable={false}
-                  />
+                  <div className={`${isMobile ? "size-14" : "size-16"} aspect-square shrink-0 overflow-hidden rounded-2xl shadow-lg transition-transform duration-200 group-hover:scale-110`}>
+                    <img
+                      src={imgSrc}
+                      alt={app.name}
+                      className="h-full w-full object-contain"
+                      draggable={false}
+                    />
+                  </div>
                 ) : (
                   <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-200 group-hover:scale-110"
+                    className={`${isMobile ? "size-14" : "size-16"} aspect-square shrink-0 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-200 group-hover:scale-110`}
                     style={{ backgroundColor: app.color }}
                   >
                     <Icon name={app.icon} size={32} className="text-white" />
