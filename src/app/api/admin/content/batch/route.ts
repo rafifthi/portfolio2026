@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CmsEntryInput, normalizeCmsEntryInput } from "@/lib/cms";
-import { createCmsEntries, updateCmsEntries } from "@/lib/cms-db";
+import { createCmsEntries, deleteCmsEntries, updateCmsEntries } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const MAX_BATCH_SIZE = 500;
 
 type BatchBody = {
-  operation?: "create" | "update";
+  operation?: "create" | "update" | "delete";
   entries?: unknown[];
 };
 
@@ -37,6 +37,24 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (body.operation === "delete") {
+      const ids = body.entries.map((entry) => {
+        const candidate = (entry ?? {}) as { id?: unknown };
+        return typeof candidate.id === "string" ? candidate.id.trim() : "";
+      });
+      if (ids.some((id) => !id) || new Set(ids).size !== ids.length) return invalidBatch();
+
+      const entries = await deleteCmsEntries(ids);
+      if (entries.length !== ids.length) {
+        return NextResponse.json(
+          { error: "One or more content entries were not found.", entries },
+          { status: 404 }
+        );
+      }
+      invalidatePublishedCmsEntries();
+      return NextResponse.json({ entries });
+    }
+
     if (body.operation === "create") {
       const inputs = body.entries.map((entry) =>
         normalizeCmsEntryInput((entry ?? {}) as Partial<CmsEntryInput>)

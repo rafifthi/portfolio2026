@@ -84,6 +84,8 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
             src={image}
             alt={label}
             className={compact ? "w-full h-20 object-cover" : "w-full h-auto object-contain"}
+            loading="eager"
+            fetchPriority="high"
             draggable={false}
           />
         </div>

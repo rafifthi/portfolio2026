@@ -1,11 +1,35 @@
 import { NextResponse } from "next/server";
 import { normalizeCmsEntryInput } from "@/lib/cms";
-import { deleteCmsEntry, updateCmsEntry } from "@/lib/cms-db";
+import { deleteCmsEntry, getCmsEntry, updateCmsEntry } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await isAdminSession())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const entry = await getCmsEntry(id);
+    if (!entry) {
+      return NextResponse.json({ error: "Content not found." }, { status: 404 });
+    }
+    return NextResponse.json({ entry });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load content." },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PATCH(
   request: Request,

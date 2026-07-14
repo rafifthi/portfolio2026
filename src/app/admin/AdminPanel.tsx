@@ -23,6 +23,7 @@ import { BlockEditor, EditorBlock, fromEditorBlocks, toEditorBlocks } from "./Bl
 type FormState = CmsEntryInput<GalleryImageData | NoteData | PortfolioEntryData>;
 type UploadTarget = "gallery" | "portfolio-banner" | "portfolio-icon";
 type UploadedImage = { url: string; media: CmsImageMetadata };
+type SuccessToast = { id: number; message: string };
 
 const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "gallery", label: "Gallery", icon: "Image" },
@@ -185,6 +186,7 @@ export default function AdminPanel() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyData("gallery"));
   const [message, setMessage] = useState("");
+  const [successToast, setSuccessToast] = useState<SuccessToast | null>(null);
   const [busy, setBusy] = useState(false);
   const [blocks, setBlocks] = useState<EditorBlock[]>(() => toEditorBlocks((emptyData("portfolio").data as PortfolioEntryData).blocks));
   const [jsonMode, setJsonMode] = useState(false);
@@ -196,6 +198,16 @@ export default function AdminPanel() {
     () => entries.filter((entry) => entry.type === activeType),
     [activeType, entries]
   );
+
+  function showSuccessToast(message: string) {
+    setSuccessToast({ id: Date.now(), message });
+  }
+
+  useEffect(() => {
+    if (!successToast) return;
+    const timeout = window.setTimeout(() => setSuccessToast(null), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [successToast]);
 
   async function checkAuth() {
     const data = await jsonFetch<{ authenticated: boolean; configured: boolean; usernameRequired: boolean }>("/api/admin/auth");
@@ -311,6 +323,7 @@ export default function AdminPanel() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    const isNewEntry = !selectedId;
     setBusy(true);
     setMessage("");
 
@@ -361,9 +374,12 @@ export default function AdminPanel() {
         body: JSON.stringify(payload),
       });
 
-      setSelectedId(data.entry.id);
+      selectEntry(data.entry);
+      if (data.entry.type === "notes") {
+        setNotesFolder((data.entry.data as NoteData).folder);
+      }
       await loadEntries(payload.type);
-      setMessage("Saved.");
+      showSuccessToast(isNewEntry ? "Created successfully." : "Saved successfully.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Save failed.");
     } finally {
@@ -382,9 +398,38 @@ export default function AdminPanel() {
       await jsonFetch(`/api/admin/content/${selectedId}`, { method: "DELETE" });
       await loadEntries(activeType);
       startNew(activeType);
-      setMessage("Deleted.");
+      showSuccessToast("Deleted successfully.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeNotesFolder(folder: string) {
+    const folderEntries = entries.filter(
+      (entry) => entry.type === "notes" && (entry.data as NoteData).folder === folder
+    );
+    if (!folderEntries.length) return;
+
+    setBusy(true);
+    setMessage("");
+    try {
+      await jsonFetch("/api/admin/content/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          operation: "delete",
+          entries: folderEntries.map((entry) => ({ id: entry.id })),
+        }),
+      });
+      await loadEntries("notes");
+      setNotesFolder(null);
+      startNew("notes");
+      showSuccessToast(
+        `Folder deleted, ${folderEntries.length} ${folderEntries.length === 1 ? "note" : "notes"} removed.`
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to delete folder.");
     } finally {
       setBusy(false);
     }
@@ -511,7 +556,8 @@ export default function AdminPanel() {
           `${successful.length} added, ${failed.length} failed: ${failed.map(({ file }) => file.name).join(", ")}`
         );
       } else {
-        setMessage(`${successful.length} photo${successful.length === 1 ? "" : "s"} added.`);
+        setMessage("");
+        showSuccessToast(`${successful.length} photo${successful.length === 1 ? "" : "s"} created successfully.`);
       }
     } catch (error) {
       await loadEntries("gallery");
@@ -528,7 +574,7 @@ export default function AdminPanel() {
     try {
       await jsonFetch(`/api/admin/content/${entry.id}`, { method: "DELETE" });
       await loadEntries("gallery");
-      setMessage("Photo deleted.");
+      showSuccessToast("Deleted successfully.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delete failed.");
     } finally {
@@ -559,7 +605,8 @@ export default function AdminPanel() {
         }),
       });
       await loadEntries("gallery");
-      setMessage("Order saved.");
+      setMessage("");
+      showSuccessToast("Saved successfully.");
     } catch (error) {
       await loadEntries("gallery");
       setMessage(error instanceof Error ? error.message : "Failed to save order.");
@@ -568,19 +615,25 @@ export default function AdminPanel() {
     }
   }
 
-  async function updateGalleryData(entry: CmsEntry, data: GalleryImageData) {
+  async function updateGalleryEntry(
+    entry: CmsEntry,
+    data: GalleryImageData,
+    status: "draft" | "published" = entry.status
+  ) {
     setBusy(true);
     setMessage("");
     setEntries((current) =>
-      current.map((item) => (item.id === entry.id ? { ...item, data } : item))
+      current.map((item) =>
+        item.id === entry.id ? { ...item, data, status } : item
+      )
     );
     try {
       await jsonFetch(`/api/admin/content/${entry.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...entry, data }),
+        body: JSON.stringify(cmsInputFromEntry(entry, { data, status })),
       });
       await loadEntries("gallery");
-      setMessage("Photo updated.");
+      showSuccessToast("Saved successfully.");
     } catch (error) {
       await loadEntries("gallery");
       setMessage(error instanceof Error ? error.message : "Failed to update photo.");
@@ -620,7 +673,8 @@ export default function AdminPanel() {
         }),
       });
       await loadEntries("gallery");
-      setMessage(normalizedReplacement ? "Album renamed." : "Album removed.");
+      setMessage("");
+      showSuccessToast(normalizedReplacement ? "Saved successfully." : "Deleted successfully.");
     } catch (error) {
       await loadEntries("gallery");
       setMessage(error instanceof Error ? error.message : "Failed to update album.");
@@ -684,10 +738,29 @@ export default function AdminPanel() {
   return (
     <Shell>
       <div className="flex h-full w-full flex-col">
+        {successToast && (
+          <div
+            key={successToast.id}
+            role="status"
+            aria-live="polite"
+            className="fixed right-5 top-5 z-[110] flex max-w-sm items-center gap-3 rounded-lg border border-emerald-300/25 bg-[#10261f] px-4 py-3 text-sm font-medium text-emerald-50 shadow-2xl"
+          >
+            <Icon name="CircleCheck" size={18} className="shrink-0 text-emerald-300" />
+            <span className="flex-1">{successToast.message}</span>
+            <button
+              type="button"
+              onClick={() => setSuccessToast(null)}
+              className="rounded p-1 text-emerald-100/60 hover:bg-emerald-100/10 hover:text-emerald-50"
+              aria-label="Dismiss notification"
+            >
+              <Icon name="X" size={15} />
+            </button>
+          </div>
+        )}
         <header className="flex h-14 items-center border-b border-white/10 px-5">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-sky-300">Portfolio CMS</div>
-            <div className="text-lg font-semibold text-white">Neon + Cloudinary Admin</div>
+            <div className="text-lg font-semibold text-white">DeimOS</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {message && <span role="status" aria-live="polite" className="text-sm text-white/60">{message}</span>}
@@ -764,7 +837,7 @@ export default function AdminPanel() {
                 upload={uploadGalleryFiles}
                 remove={removeGalleryEntry}
                 reorder={reorderGallery}
-                update={updateGalleryData}
+                update={updateGalleryEntry}
                 replaceLabel={replaceGalleryLabel}
               />
             ) : activeType === "notes" ? (
@@ -778,6 +851,7 @@ export default function AdminPanel() {
                 selectEntry={selectEntry}
                 startNewNote={startNewNote}
                 save={save}
+                deleteFolder={removeNotesFolder}
                 remove={() => {
                   void removeSelected().then(() => startNewNote(notesFolder || ""));
                 }}
@@ -983,7 +1057,11 @@ function GalleryManager({
   upload: (files: File[]) => void;
   remove: (entry: CmsEntry) => void;
   reorder: (fromIndex: number, toIndex: number) => void;
-  update: (entry: CmsEntry, data: GalleryImageData) => void;
+  update: (
+    entry: CmsEntry,
+    data: GalleryImageData,
+    status?: "draft" | "published"
+  ) => Promise<void>;
   replaceLabel: (label: string, replacement?: string) => void;
 }) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
@@ -1194,6 +1272,48 @@ function GalleryManager({
                         </form>
                       </div>
                     </details>
+                    <details className="group/details relative">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 rounded px-2 py-1.5 text-xs text-white/60 hover:bg-white/10">
+                        <Icon name="Pencil" size={13} /> Details
+                      </summary>
+                      <form
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const formData = new FormData(event.currentTarget);
+                          const status = formData.get("status") === "draft" ? "draft" : "published";
+                          void update(
+                            entry,
+                            {
+                              ...data,
+                              title: String(formData.get("title") || "").trim(),
+                              date: String(formData.get("date") || ""),
+                            },
+                            status
+                          );
+                          event.currentTarget.closest("details")?.removeAttribute("open");
+                        }}
+                        className="absolute bottom-9 right-0 z-20 w-64 space-y-2 rounded-lg border border-white/15 bg-[#151a23] p-3 text-left shadow-2xl"
+                      >
+                        <label className="block">
+                          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">Caption</span>
+                          <input name="title" defaultValue={data.title || ""} className={inputClass("text-xs")} />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">Date</span>
+                          <input name="date" type="date" defaultValue={data.date || ""} className={inputClass("text-xs")} />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/40">Status</span>
+                          <select name="status" defaultValue={entry.status} className={inputClass("text-xs")}>
+                            <option value="draft">Draft</option>
+                            <option value="published">Published</option>
+                          </select>
+                        </label>
+                        <button disabled={busy} className="w-full rounded-md bg-sky-500 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-400 disabled:opacity-40">
+                          Save details
+                        </button>
+                      </form>
+                    </details>
                     <button type="button" disabled={busy || index === 0} onClick={() => reorder(index, index - 1)} aria-label={`Move photo ${index + 1} earlier`} className="rounded p-1.5 text-white/55 hover:bg-white/10 disabled:opacity-25">
                       <Icon name="ArrowLeft" size={14} />
                     </button>
@@ -1226,6 +1346,7 @@ function NotesManager({
   selectEntry,
   startNewNote,
   save,
+  deleteFolder,
   remove,
   setTitle,
   setStatus,
@@ -1240,6 +1361,7 @@ function NotesManager({
   selectEntry: (entry: CmsEntry) => void;
   startNewNote: (folder: string) => void;
   save: (event: FormEvent) => void;
+  deleteFolder: (folder: string) => Promise<void>;
   remove: () => void;
   setTitle: (title: string) => void;
   setStatus: (status: "draft" | "published") => void;
@@ -1262,6 +1384,15 @@ function NotesManager({
     }
     setFolder(value);
     startNewNote(value);
+  }
+
+  function removeFolder() {
+    if (!folder) return;
+    const count = folderEntries.length;
+    const confirmed = window.confirm(
+      `Delete “${folder}” and its ${count} ${count === 1 ? "note" : "notes"}? This cannot be undone.`
+    );
+    if (confirmed) void deleteFolder(folder);
   }
 
   if (!folder) {
@@ -1307,6 +1438,14 @@ function NotesManager({
         <button type="button" onClick={() => startNewNote(folder)} className="ml-auto flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15">
           <Icon name="FilePlus2" size={15} /> New note
         </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={removeFolder}
+          className="flex items-center gap-2 rounded-md border border-rose-300/20 px-3 py-2 text-sm font-medium text-rose-200 hover:bg-rose-400/10 disabled:opacity-40"
+        >
+          <Icon name="Trash2" size={15} /> Delete folder
+        </button>
       </div>
 
       <div className="grid min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-white/[0.025] md:grid-cols-[260px_minmax(0,1fr)]">
@@ -1324,10 +1463,33 @@ function NotesManager({
         </div>
 
         <form onSubmit={save} className="flex min-w-0 flex-col">
-          <div className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-[minmax(0,1fr)_150px]">
+          <div className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,220px)_160px_150px]">
             <label>
               <span className="mb-1 block text-xs font-medium text-white/45">File name</span>
               <input value={form.type === "notes" ? form.title : ""} onChange={(event) => setTitle(event.target.value)} className={inputClass()} required />
+            </label>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-white/45">Folder</span>
+              <input
+                value={noteData.folder}
+                onChange={(event) =>
+                  setData((current) => ({ ...current, folder: event.target.value }))
+                }
+                className={inputClass()}
+                required
+              />
+            </label>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-white/45">Date</span>
+              <input
+                type="date"
+                value={noteData.date}
+                onChange={(event) =>
+                  setData((current) => ({ ...current, date: event.target.value }))
+                }
+                className={inputClass()}
+                required
+              />
             </label>
             <label>
               <span className="mb-1 block text-xs font-medium text-white/45">Status</span>
@@ -1338,7 +1500,7 @@ function NotesManager({
             </label>
           </div>
           <div className="flex-1 p-4">
-            <textarea value={noteData.content} onChange={(event) => setData((current) => ({ ...current, folder, title: form.title, content: event.target.value }))} placeholder="Write your note..." className={inputClass("h-full min-h-96 resize-none font-mono leading-relaxed")} />
+            <textarea value={noteData.content} onChange={(event) => setData((current) => ({ ...current, title: form.title, content: event.target.value }))} placeholder="Write your note..." className={inputClass("h-full min-h-96 resize-none font-mono leading-relaxed")} />
           </div>
           <div className="flex items-center gap-3 border-t border-white/10 p-4">
             <button disabled={busy} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60">{busy ? "Saving..." : "Save note"}</button>
@@ -1433,22 +1595,6 @@ function PortfolioForm({
           {data.banner ? <img src={data.banner} alt={data.title} className="h-full w-full object-cover" /> : null}
         </div>
       </div>
-
-      <label className="block">
-        <span className="mb-1 block text-xs font-medium text-white/50">Project URL</span>
-        <input
-          type="url"
-          value={data.projectUrl || ""}
-          onChange={(event) =>
-            setData((current) => ({ ...current, projectUrl: event.target.value }))
-          }
-          placeholder="https://live-app.example or https://figma.com/design/..."
-          className={inputClass()}
-        />
-        <span className="mt-1 block text-xs text-white/35">
-          Optional. Paste the live app or Figma prototype URL, including https://.
-        </span>
-      </label>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-4">

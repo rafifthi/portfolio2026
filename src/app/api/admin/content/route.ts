@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
   }
 
   const type = request.nextUrl.searchParams.get("type");
+  if (type !== null && !isCmsEntryType(type)) {
+    return NextResponse.json({ error: "Invalid content type." }, { status: 400 });
+  }
   const normalizedType = isCmsEntryType(type) ? type : undefined;
 
   try {

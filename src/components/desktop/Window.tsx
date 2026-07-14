@@ -2,6 +2,7 @@
 
 import { motion, useDragControls } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
+import Image from "next/image";
 import { Icon } from "@/components/Icon";
 
 interface WindowProps {
@@ -22,6 +23,14 @@ interface WindowProps {
   icon?: string;
   isMobile?: boolean;
   isTop?: boolean;
+}
+
+function WindowIcon({ icon, size }: { icon?: string; size: number }) {
+  if (!icon) return null;
+  if (icon.startsWith("/")) {
+    return <Image src={icon} alt="" width={size} height={size} className="shrink-0 object-contain" aria-hidden />;
+  }
+  return <Icon name={icon} size={size} />;
 }
 
 export default function Window({
@@ -68,6 +77,7 @@ export default function Window({
   if (isMobile) {
     return (
         <motion.div
+          data-window-id={id}
           drag="y"
           dragListener={false}
           dragControls={dragControls}
@@ -127,7 +137,7 @@ export default function Window({
                 className="flex-1 text-center text-[17px] font-semibold truncate px-2 flex items-center justify-center gap-1.5"
                 style={{ color: "var(--text-primary)" }}
               >
-                {icon && <Icon name={icon} size={15} />}
+                <WindowIcon icon={icon} size={15} />
                 <span>{title}</span>
               </div>
               <div className="w-12 flex-shrink-0" />
@@ -148,6 +158,7 @@ export default function Window({
   return (
     <>
       <motion.div
+        data-window-id={id}
         drag
         dragMomentum={false}
         dragConstraints={constraintsRef}
@@ -215,7 +226,7 @@ export default function Window({
             className="flex-1 text-center text-xs font-medium truncate px-4 flex items-center justify-center gap-1.5 transition-colors duration-300"
             style={{ color: "var(--text-primary)" }}
           >
-            {icon && <Icon name={icon} size={12} />}
+            <WindowIcon icon={icon} size={14} />
             <span>{title}</span>
           </div>
           <div className="w-14" />

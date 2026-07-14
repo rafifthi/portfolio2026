@@ -65,6 +65,17 @@ export async function listCmsEntries(type?: CmsEntryType, includeDrafts = false)
   return rows.map(toEntry);
 }
 
+export async function getCmsEntry(id: string) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM cms_entries
+    WHERE id = ${id}
+    LIMIT 1
+  ` as CmsRow[];
+
+  return rows[0] ? toEntry(rows[0]) : null;
+}
+
 export async function createCmsEntry(input: CmsEntryInput) {
   const sql = getSql();
   const id = randomUUID();
@@ -190,4 +201,25 @@ export async function deleteCmsEntry(id: string) {
     RETURNING type
   ` as { type: CmsEntryType }[];
   return rows[0]?.type ?? null;
+}
+
+export async function deleteCmsEntries(ids: string[]) {
+  if (!ids.length) return [];
+  const sql = getSql();
+  const payload = ids.map((id) => ({ id }));
+  const rows = await sql`
+    WITH input AS (
+      SELECT id
+      FROM jsonb_to_recordset(${JSON.stringify(payload)}::jsonb) AS item(id text)
+    ), valid AS (
+      SELECT count(*) = ${ids.length} AS ok
+      FROM cms_entries
+      INNER JOIN input USING (id)
+    )
+    DELETE FROM cms_entries
+    WHERE (SELECT ok FROM valid) AND id IN (SELECT id FROM input)
+    RETURNING id, type
+  ` as { id: string; type: CmsEntryType }[];
+
+  return rows;
 }
