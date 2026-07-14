@@ -163,11 +163,12 @@ export default function HomeClient({
         const usesSeedLumonaPosition = isLumonaEntry &&
           ((desktop?.x === 55 && desktop?.y === 10) ||
             (desktop?.x === 26 && desktop?.y === 13) ||
-            (desktop?.x === 30 && desktop?.y === 13));
+            (desktop?.x === 30 && desktop?.y === 13) ||
+            (desktop?.x === 42 && desktop?.y === 13));
         const usesSeedTdnPosition = entry.slug === "tdn-case" &&
           ((desktop?.x === 80 && desktop?.y === 14) || (desktop?.x === 76 && desktop?.y === 42));
         const position = usesSeedLumonaPosition
-          ? { x: 42, y: 13 }
+          ? { x: 56, y: 13 }
           : usesSeedTdnPosition
             ? { x: 70, y: 47 }
             : desktop;

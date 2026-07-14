@@ -202,7 +202,7 @@ const portfolioSeeds = [
       desktop: {
         label: "Supply Chain ERP",
         image: "https://picsum.photos/seed/lumona/320/240",
-        x: 42,
+        x: 56,
         y: 13,
         width: 200,
       },
