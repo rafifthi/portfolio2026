@@ -82,8 +82,8 @@ function emptyData(type: CmsEntryType): FormState {
         desktop: {
           label: "",
           image: "",
-          x: 22,
-          y: 17,
+          x: 26,
+          y: 13,
           width: 170,
           icon: "BriefcaseBusiness",
           color: "#3b82f6",
