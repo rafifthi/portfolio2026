@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { Icon } from "@/components/Icon";
 import { siteLinks } from "@/lib/site";
 import { DesktopItem, FinderItem } from "@/lib/types";
+import { useTheme } from "@/components/ThemeProvider";
 
 type SectionKey = "Work" | "Profile" | "Connect";
 
@@ -108,7 +110,44 @@ function toWorkItem(item: DesktopItem): FinderItem {
   };
 }
 
+function getFinderIconSrc(id: string, theme: "dark" | "light") {
+  const icons: Record<string, string> = {
+    email: "/dock/email.png",
+    linkedin: "/dock/linkedin.png",
+    twitter: "/dock/X.png",
+    instagram: "/dock/instagram.png",
+  };
+  if (id === "github") return theme === "dark" ? "/dock/github-dark.png" : "/dock/github-light.png";
+  return icons[id] || null;
+}
+
+function FinderItemIcon({
+  item,
+  size,
+  theme,
+}: {
+  item: FinderItem;
+  size: number;
+  theme: "dark" | "light";
+}) {
+  const src = getFinderIconSrc(item.id, theme);
+  if (src) {
+    return (
+      <Image
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-[22%] object-contain"
+        aria-hidden
+      />
+    );
+  }
+  return <Icon name={item.icon} size={size > 24 ? 24 : 16} style={{ color: item.color }} />;
+}
+
 export default function Finder({ onOpenApp, finderItems = [], isMobile = false }: FinderProps) {
+  const { theme } = useTheme();
   const [activeSection, setActiveSection] = useState<SectionKey>("Work");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
@@ -220,8 +259,11 @@ export default function Finder({ onOpenApp, finderItems = [], isMobile = false }
                   style={{ outlineColor: "var(--accent)" }}
                   aria-label={`Open ${item.name}`}
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color}22` }}>
-                    <Icon name={item.icon} size={24} style={{ color: item.color }} />
+                  <div
+                    className="flex h-14 w-14 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: getFinderIconSrc(item.id, theme) ? "transparent" : `${item.color}22` }}
+                  >
+                    <FinderItemIcon item={item} size={56} theme={theme} />
                   </div>
                   <span className="w-full truncate text-xs font-medium" style={{ color: "var(--text-primary)" }}>{item.name}</span>
                   <span className="-mt-1 w-full truncate text-[10px]" style={{ color: "var(--text-tertiary)" }}>{item.kind}</span>
@@ -245,7 +287,7 @@ export default function Finder({ onOpenApp, finderItems = [], isMobile = false }
                   aria-label={`Open ${item.name}`}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <Icon name={item.icon} size={16} style={{ color: item.color }} />
+                    <FinderItemIcon item={item} size={18} theme={theme} />
                     <span className="truncate" style={{ color: "var(--text-primary)" }}>{item.name}</span>
                   </div>
                   {!isMobile && <span className="w-32 truncate" style={{ color: "var(--text-secondary)" }}>{item.kind}</span>}
