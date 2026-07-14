@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS cms_entries (
   id text PRIMARY KEY,
-  type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio')),
+  type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio', 'about', 'wife')),
   slug text NOT NULL,
   title text NOT NULL,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),

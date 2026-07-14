@@ -6,6 +6,8 @@ import { Icon } from "@/components/Icon";
 import { siteLinks } from "@/lib/site";
 import { DesktopItem, FinderItem } from "@/lib/types";
 import { useTheme } from "@/components/ThemeProvider";
+import type { AboutData, WifeData } from "@/lib/cms";
+import { fallbackAboutData, fallbackWifeData } from "@/lib/profile-content";
 
 type SectionKey = "Work" | "Profile" | "Connect";
 
@@ -13,6 +15,8 @@ interface FinderProps {
   onOpenApp: (appId: string) => void;
   finderItems?: DesktopItem[];
   isMobile?: boolean;
+  aboutData?: AboutData;
+  wifeData?: WifeData;
 }
 
 const sectionMeta: Record<SectionKey, { icon: string; label: string }> = {
@@ -21,15 +25,7 @@ const sectionMeta: Record<SectionKey, { icon: string; label: string }> = {
   Connect: { icon: "AtSign", label: "Connect" },
 };
 
-const profileItems: FinderItem[] = [
-  {
-    id: "about",
-    name: "About Rafif",
-    kind: "Profile",
-    icon: "UserRound",
-    color: "#3b82f6",
-    target: { type: "app", appId: "about" },
-  },
+const staticProfileItems: FinderItem[] = [
   {
     id: "cv",
     name: "CV.pdf",
@@ -45,14 +41,6 @@ const profileItems: FinderItem[] = [
     icon: "FileText",
     color: "#6b7280",
     target: { type: "app", appId: "readme" },
-  },
-  {
-    id: "wife",
-    name: "Kanza",
-    kind: "Personal story",
-    icon: "Heart",
-    color: "#ec4899",
-    target: { type: "app", appId: "wife" },
   },
 ];
 
@@ -102,10 +90,11 @@ const connectItems: FinderItem[] = [
 function toWorkItem(item: DesktopItem): FinderItem {
   return {
     id: item.id,
-    name: item.label,
+    name: item.finderLabel || item.label,
     kind: "Case study",
     icon: "BriefcaseBusiness",
     color: "#3b82f6",
+    image: item.finderIcon,
     target: { type: "app", appId: item.appId },
   };
 }
@@ -130,6 +119,19 @@ function FinderItemIcon({
   size: number;
   theme: "dark" | "light";
 }) {
+  if (item.image) {
+    return (
+      <img
+        src={item.image}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-[22%] object-cover"
+        aria-hidden
+      />
+    );
+  }
+
   const src = getFinderIconSrc(item.id, theme);
   if (src) {
     return (
@@ -146,10 +148,40 @@ function FinderItemIcon({
   return <Icon name={item.icon} size={size > 24 ? 24 : 16} style={{ color: item.color }} />;
 }
 
-export default function Finder({ onOpenApp, finderItems = [], isMobile = false }: FinderProps) {
+export default function Finder({
+  onOpenApp,
+  finderItems = [],
+  isMobile = false,
+  aboutData = fallbackAboutData,
+  wifeData = fallbackWifeData,
+}: FinderProps) {
   const { theme } = useTheme();
   const [activeSection, setActiveSection] = useState<SectionKey>("Work");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const profileItems = useMemo<FinderItem[]>(
+    () => [
+      {
+        id: "about",
+        name: aboutData.title,
+        kind: "Profile",
+        icon: "UserRound",
+        color: aboutData.desktop.color || "#3b82f6",
+        image: aboutData.finderIcon || undefined,
+        target: { type: "app", appId: "about" },
+      },
+      ...staticProfileItems,
+      {
+        id: "wife",
+        name: wifeData.name,
+        kind: "Personal story",
+        icon: "Heart",
+        color: wifeData.desktop.color || "#ec4899",
+        image: wifeData.finderIcon || undefined,
+        target: { type: "app", appId: "wife" },
+      },
+    ],
+    [aboutData, wifeData]
+  );
 
   const sections = useMemo<Record<SectionKey, FinderItem[]>>(
     () => ({
@@ -163,7 +195,7 @@ export default function Finder({ onOpenApp, finderItems = [], isMobile = false }
       Profile: profileItems,
       Connect: connectItems,
     }),
-    [finderItems]
+    [finderItems, profileItems]
   );
 
   const items = sections[activeSection];

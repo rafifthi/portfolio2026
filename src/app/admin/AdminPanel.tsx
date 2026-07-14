@@ -4,6 +4,7 @@ import { DragEvent, FormEvent, ReactNode, RefObject, useEffect, useMemo, useRef,
 import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import {
+  AboutData,
   CmsEntry,
   CmsEntryInput,
   CmsEntryType,
@@ -11,6 +12,7 @@ import {
   GalleryImageData,
   NoteData,
   PortfolioEntryData,
+  WifeData,
   browserImageUrl,
   croppedCloudinaryUrl,
   slugify,
@@ -20,8 +22,19 @@ import { NotionBlock } from "@/lib/types";
 import { Icon } from "@/components/Icon";
 import { BlockEditor, EditorBlock, fromEditorBlocks, toEditorBlocks } from "./BlockEditor";
 
-type FormState = CmsEntryInput<GalleryImageData | NoteData | PortfolioEntryData>;
-type UploadTarget = "gallery" | "portfolio-banner" | "portfolio-icon";
+type FormData = GalleryImageData | NoteData | PortfolioEntryData | AboutData | WifeData;
+type FormState = CmsEntryInput<FormData>;
+type UploadTarget =
+  | "gallery"
+  | "portfolio-banner"
+  | "portfolio-icon"
+  | "portfolio-finder-icon"
+  | "about-photo"
+  | "about-finder-icon"
+  | "about-desktop-icon"
+  | "wife-photo"
+  | "wife-finder-icon"
+  | "wife-desktop-icon";
 type UploadedImage = { url: string; media: CmsImageMetadata };
 type SuccessToast = { id: number; message: string };
 
@@ -29,6 +42,8 @@ const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "gallery", label: "Gallery", icon: "Image" },
   { type: "notes", label: "Notes", icon: "StickyNote" },
   { type: "portfolio", label: "Portfolio", icon: "BriefcaseBusiness" },
+  { type: "about", label: "About Rafif", icon: "UserRound" },
+  { type: "wife", label: "Wife", icon: "Heart" },
 ];
 
 function emptyData(type: CmsEntryType): FormState {
@@ -72,6 +87,58 @@ function emptyData(type: CmsEntryType): FormState {
           width: 170,
           icon: "BriefcaseBusiness",
           color: "#3b82f6",
+        },
+      },
+    };
+  }
+
+  if (type === "about") {
+    return {
+      type,
+      title: "",
+      slug: "about-rafif",
+      status: "draft",
+      sortOrder: 0,
+      data: {
+        title: "",
+        subtitle: "",
+        body: "",
+        tags: [],
+        photo: "",
+        finderIcon: "",
+        desktop: {
+          label: "About Rafif",
+          image: "",
+          x: 44,
+          y: 8,
+          width: 150,
+          icon: "UserRound",
+          color: "#3b82f6",
+        },
+      },
+    };
+  }
+
+  if (type === "wife") {
+    return {
+      type,
+      title: "",
+      slug: "wife",
+      status: "draft",
+      sortOrder: 0,
+      data: {
+        name: "",
+        description: "",
+        photo: "",
+        finderIcon: "",
+        desktop: {
+          label: "wife",
+          image: "",
+          x: 28,
+          y: 8,
+          width: 140,
+          icon: "Heart",
+          color: "#ec4899",
         },
       },
     };
@@ -287,7 +354,7 @@ export default function AdminPanel() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function setData<TData extends GalleryImageData | NoteData | PortfolioEntryData>(
+  function setData<TData extends FormData>(
     updater: (data: TData) => TData
   ) {
     setForm((current) => ({ ...current, data: updater(current.data as TData) }));
@@ -360,6 +427,16 @@ export default function AdminPanel() {
             ...(form.data as NoteData),
             title: form.title,
           },
+        };
+      } else if (form.type === "about") {
+        payload = {
+          ...form,
+          data: { ...(form.data as AboutData), title: form.title },
+        };
+      } else if (form.type === "wife") {
+        payload = {
+          ...form,
+          data: { ...(form.data as WifeData), name: form.title },
         };
       }
 
@@ -487,11 +564,27 @@ export default function AdminPanel() {
           banner: data.url,
           bannerMedia: data.media,
         }));
-      } else {
+      } else if (target === "portfolio-icon") {
         setData<PortfolioEntryData>((current) => ({
           ...current,
           desktop: { ...current.desktop, media: data.media },
         }));
+      } else if (target === "portfolio-finder-icon") {
+        setData<PortfolioEntryData>((current) => ({
+          ...current,
+          finderIcon: data.url,
+          finderIconMedia: data.media,
+        }));
+      } else if (target.startsWith("about-")) {
+        const field = target === "about-photo" ? "photo" : target === "about-finder-icon" ? "finderIcon" : "desktop";
+        setData<AboutData>((current) => field === "desktop"
+          ? { ...current, desktop: { ...current.desktop, image: data.url, media: data.media } }
+          : { ...current, [field]: data.url, [`${field}Media`]: data.media });
+      } else if (target.startsWith("wife-")) {
+        const field = target === "wife-photo" ? "photo" : target === "wife-finder-icon" ? "finderIcon" : "desktop";
+        setData<WifeData>((current) => field === "desktop"
+          ? { ...current, desktop: { ...current.desktop, image: data.url, media: data.media } }
+          : { ...current, [field]: data.url, [`${field}Media`]: data.media });
       }
       setMessage(target === "portfolio-icon" ? "Icon uploaded. Adjust the crop, then apply it." : "Image uploaded.");
       return data.url;
@@ -866,7 +959,7 @@ export default function AdminPanel() {
             <form onSubmit={save} className="mx-auto max-w-5xl space-y-5">
               <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-4">
                 <label className="md:col-span-2">
-                  <span className="mb-1 block text-xs font-medium text-white/50">Title</span>
+                  <span className="mb-1 block text-xs font-medium text-white/50">{form.type === "wife" ? "Name" : "Title"}</span>
                   <input
                     value={form.title}
                     onChange={(event) => {
@@ -910,7 +1003,24 @@ export default function AdminPanel() {
                   setMetaText={setMetaText}
                   uploadBanner={(file) => uploadImage(file, "portfolio-banner")}
                   uploadIcon={(file) => uploadImage(file, "portfolio-icon")}
+                  uploadFinderIcon={(file) => uploadImage(file, "portfolio-finder-icon")}
                   uploadInline={uploadInlineImage}
+                />
+              )}
+
+              {form.type === "about" && (
+                <AboutForm
+                  data={form.data as AboutData}
+                  setData={(updater) => setData<AboutData>(updater)}
+                  upload={(file, target) => uploadImage(file, target)}
+                />
+              )}
+
+              {form.type === "wife" && (
+                <WifeForm
+                  data={form.data as WifeData}
+                  setData={(updater) => setData<WifeData>(updater)}
+                  upload={(file, target) => uploadImage(file, target)}
                 />
               )}
 
@@ -957,6 +1067,130 @@ function FileInput({ label, onFile }: { label: string; onFile: (file: File) => v
         }}
       />
     </label>
+  );
+}
+
+function AssetPreview({ src, alt, square = false }: { src: string; alt: string; square?: boolean }) {
+  return (
+    <div className={`${square ? "h-16 w-16" : "h-24 w-32"} shrink-0 overflow-hidden rounded-lg bg-white/[0.06]`}>
+      {src ? <img src={browserImageUrl(src)} alt={alt} className="h-full w-full object-cover" /> : null}
+    </div>
+  );
+}
+
+function AssetField({ label, value, onChange, onFile, square = false }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onFile: (file: File) => void;
+  square?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <label>
+        <span className="mb-1 block text-xs font-medium text-white/50">{label}</span>
+        <input value={value} onChange={(event) => onChange(event.target.value)} className={inputClass()} />
+      </label>
+      <div className="flex items-center gap-3">
+        <AssetPreview src={value} alt={`${label} preview`} square={square} />
+        <FileInput label={`Upload ${label.toLowerCase()}`} onFile={onFile} />
+      </div>
+    </div>
+  );
+}
+
+function DesktopAssetFields<TData extends { desktop: PortfolioEntryData["desktop"] }>({ data, setData, upload }: {
+  data: TData;
+  setData: (updater: (data: TData) => TData) => void;
+  upload: (file: File) => void;
+}) {
+  return (
+    <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+      <div>
+        <h2 className="text-sm font-semibold text-white">Desktop icon</h2>
+        <p className="mt-1 text-xs text-white/40">Separate artwork and placement for the desktop surface.</p>
+      </div>
+      <AssetField label="Desktop Icon" value={data.desktop.image} onChange={(image) => setData((current) => ({ ...current, desktop: { ...current.desktop, image } }))} onFile={upload} />
+      <div className="grid gap-3 md:grid-cols-4">
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Desktop Label</span>
+          <input value={data.desktop.label} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, label: event.target.value } }))} className={inputClass()} />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Width</span>
+          <input type="number" value={data.desktop.width} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, width: Number(event.target.value) } }))} className={inputClass()} />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">X %</span>
+          <input type="number" value={data.desktop.x} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, x: Number(event.target.value) } }))} className={inputClass()} />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Y %</span>
+          <input type="number" value={data.desktop.y} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, y: Number(event.target.value) } }))} className={inputClass()} />
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function AboutForm({ data, setData, upload }: {
+  data: AboutData;
+  setData: (updater: (data: AboutData) => AboutData) => void;
+  upload: (file: File, target: UploadTarget) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white">About content</h2>
+          <p className="mt-1 text-xs text-white/40">The entry title above is also used as the About title and Finder label.</p>
+        </div>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Subtitle</span>
+          <input value={data.subtitle} onChange={(event) => setData((current) => ({ ...current, subtitle: event.target.value }))} className={inputClass()} />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Body</span>
+          <textarea value={data.body} onChange={(event) => setData((current) => ({ ...current, body: event.target.value }))} className={inputClass("min-h-56 leading-relaxed")} />
+          <span className="mt-1 block text-xs text-white/35">Separate paragraphs with a blank line.</span>
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Tags</span>
+          <input value={data.tags.join(", ")} onChange={(event) => setData((current) => ({ ...current, tags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) }))} className={inputClass()} />
+        </label>
+        <div className="grid gap-5 md:grid-cols-2">
+          <AssetField label="Photo" value={data.photo} onChange={(photo) => setData((current) => ({ ...current, photo }))} onFile={(file) => upload(file, "about-photo")} />
+          <AssetField label="Finder Icon (Square)" value={data.finderIcon} onChange={(finderIcon) => setData((current) => ({ ...current, finderIcon }))} onFile={(file) => upload(file, "about-finder-icon")} square />
+        </div>
+      </section>
+      <DesktopAssetFields data={data} setData={setData} upload={(file) => upload(file, "about-desktop-icon")} />
+    </div>
+  );
+}
+
+function WifeForm({ data, setData, upload }: {
+  data: WifeData;
+  setData: (updater: (data: WifeData) => WifeData) => void;
+  upload: (file: File, target: UploadTarget) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Wife content</h2>
+          <p className="mt-1 text-xs text-white/40">The entry title above is also used as the name and Finder label.</p>
+        </div>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Description</span>
+          <textarea value={data.description} onChange={(event) => setData((current) => ({ ...current, description: event.target.value }))} className={inputClass("min-h-40 leading-relaxed")} />
+        </label>
+        <div className="grid gap-5 md:grid-cols-2">
+          <AssetField label="Photo" value={data.photo} onChange={(photo) => setData((current) => ({ ...current, photo }))} onFile={(file) => upload(file, "wife-photo")} />
+          <AssetField label="Finder Icon (Square)" value={data.finderIcon} onChange={(finderIcon) => setData((current) => ({ ...current, finderIcon }))} onFile={(file) => upload(file, "wife-finder-icon")} square />
+        </div>
+      </section>
+      <DesktopAssetFields data={data} setData={setData} upload={(file) => upload(file, "wife-desktop-icon")} />
+    </div>
   );
 }
 
@@ -1526,6 +1760,7 @@ function PortfolioForm({
   setMetaText,
   uploadBanner,
   uploadIcon,
+  uploadFinderIcon,
   uploadInline,
 }: {
   data: PortfolioEntryData;
@@ -1541,6 +1776,7 @@ function PortfolioForm({
   setMetaText: (value: string) => void;
   uploadBanner: (file: File) => void;
   uploadIcon: (file: File) => Promise<string>;
+  uploadFinderIcon: (file: File) => Promise<string>;
   uploadInline: (file: File) => Promise<string>;
 }) {
   const [cropSource, setCropSource] = useState("");
@@ -1619,6 +1855,17 @@ function PortfolioForm({
           </label>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2 md:col-span-2">
+            <label>
+              <span className="mb-1 block text-xs font-medium text-white/50">Finder App Icon (Square)</span>
+              <input value={data.finderIcon || ""} onChange={(event) => setData((current) => ({ ...current, finderIcon: event.target.value }))} className={inputClass()} />
+            </label>
+            <div className="flex items-center gap-3">
+              <AssetPreview src={data.finderIcon || ""} alt="Portfolio Finder icon preview" square />
+              <FileInput label="Upload square icon" onFile={uploadFinderIcon} />
+            </div>
+            <p className="text-xs text-white/35">Used only in Finder. The desktop artwork below remains separate.</p>
+          </div>
           <label className="md:col-span-2">
             <span className="mb-1 block text-xs font-medium text-white/50">Desktop Label</span>
             <input value={data.desktop.label} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, label: event.target.value } }))} className={inputClass()} />

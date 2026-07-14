@@ -27,7 +27,8 @@ import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { DesktopItem, WindowState } from "@/lib/types";
-import { browserImageUrl, CmsEntry, NoteData, PortfolioEntryData } from "@/lib/cms";
+import { AboutData, browserImageUrl, CmsEntry, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import { fallbackAboutData, fallbackWifeData } from "@/lib/profile-content";
 
 interface AppComponentProps {
   windowId: string;
@@ -35,6 +36,8 @@ interface AppComponentProps {
   onOpenApp: (appId: string) => void;
   finderItems?: DesktopItem[];
   initialNoteEntries?: CmsEntry<NoteData>[];
+  aboutData?: AboutData;
+  wifeData?: WifeData;
   isMaximized?: boolean;
   isMobile?: boolean;
 }
@@ -81,9 +84,16 @@ const DOCK_ITEMS = [
 interface HomeClientProps {
   initialPortfolioEntries: CmsEntry<PortfolioEntryData>[];
   initialNoteEntries: CmsEntry<NoteData>[];
+  initialAboutEntry: CmsEntry<AboutData> | null;
+  initialWifeEntry: CmsEntry<WifeData> | null;
 }
 
-export default function HomeClient({ initialPortfolioEntries, initialNoteEntries }: HomeClientProps) {
+export default function HomeClient({
+  initialPortfolioEntries,
+  initialNoteEntries,
+  initialAboutEntry,
+  initialWifeEntry,
+}: HomeClientProps) {
   const { theme, toggle, wallpaper } = useTheme();
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
@@ -92,6 +102,16 @@ export default function HomeClient({ initialPortfolioEntries, initialNoteEntries
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const portfolioEntries = initialPortfolioEntries;
+  const aboutData = useMemo<AboutData>(() => ({
+    ...fallbackAboutData,
+    ...initialAboutEntry?.data,
+    desktop: { ...fallbackAboutData.desktop, ...initialAboutEntry?.data.desktop },
+  }), [initialAboutEntry]);
+  const wifeData = useMemo<WifeData>(() => ({
+    ...fallbackWifeData,
+    ...initialWifeEntry?.data,
+    desktop: { ...fallbackWifeData.desktop, ...initialWifeEntry?.data.desktop },
+  }), [initialWifeEntry]);
   // "pending" on both server and first client render (no hydration mismatch);
   // resolved to "booting" (first visit) or "done" (returning) in an effect.
   const [bootStatus, setBootStatus] = useState<"pending" | "booting" | "done">("pending");
@@ -138,6 +158,8 @@ export default function HomeClient({ initialPortfolioEntries, initialNoteEntries
         return {
           id: `cms-desktop-${entry.id}`,
           label: desktop?.label || entry.title,
+          finderLabel: entry.data.title || entry.title,
+          finderIcon: entry.data.finderIcon ? browserImageUrl(entry.data.finderIcon) : undefined,
           image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
           x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
           y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
@@ -148,9 +170,39 @@ export default function HomeClient({ initialPortfolioEntries, initialNoteEntries
     [portfolioEntries]
   );
 
+  const profileDesktopItems = useMemo<DesktopItem[]>(
+    () => [
+      ...(aboutData.desktop.image
+        ? [{
+            id: "about",
+            label: aboutData.desktop.label || aboutData.title,
+            finderLabel: aboutData.title,
+            finderIcon: aboutData.finderIcon ? browserImageUrl(aboutData.finderIcon) : undefined,
+            image: browserImageUrl(aboutData.desktop.image),
+            x: aboutData.desktop.x,
+            y: aboutData.desktop.y,
+            width: aboutData.desktop.width,
+            appId: "about",
+          }]
+        : []),
+      {
+        id: "wife",
+        label: wifeData.desktop.label || wifeData.name,
+        finderLabel: wifeData.name,
+        finderIcon: wifeData.finderIcon ? browserImageUrl(wifeData.finderIcon) : undefined,
+        image: browserImageUrl(wifeData.desktop.image || wifeData.photo),
+        x: wifeData.desktop.x,
+        y: wifeData.desktop.y,
+        width: wifeData.desktop.width,
+        appId: "wife",
+      },
+    ].filter((item) => item.image),
+    [aboutData, wifeData]
+  );
+
   const allDesktopItems = useMemo(
-    () => [...desktopItems, ...cmsDesktopItems],
-    [cmsDesktopItems]
+    () => [...desktopItems, ...profileDesktopItems, ...cmsDesktopItems],
+    [cmsDesktopItems, profileDesktopItems]
   );
 
   const getAppConfig = useCallback(
@@ -170,9 +222,27 @@ export default function HomeClient({ initialPortfolioEntries, initialNoteEntries
         };
       }
 
+      if (appId === "about") {
+        return {
+          ...APP_CONFIGS.about,
+          title: aboutData.title,
+          icon: aboutData.desktop.image || aboutData.desktop.icon || APP_CONFIGS.about.icon,
+          color: aboutData.desktop.color || APP_CONFIGS.about.color,
+        };
+      }
+
+      if (appId === "wife") {
+        return {
+          ...APP_CONFIGS.wife,
+          title: wifeData.name,
+          icon: wifeData.desktop.image || wifeData.desktop.icon || APP_CONFIGS.wife.icon,
+          color: wifeData.desktop.color || APP_CONFIGS.wife.color,
+        };
+      }
+
       return APP_CONFIGS[appId] || null;
     },
-    [portfolioEntries]
+    [aboutData, portfolioEntries, wifeData]
   );
 
   const focusWindow = useCallback(
@@ -539,6 +609,8 @@ export default function HomeClient({ initialPortfolioEntries, initialNoteEntries
                 onOpenApp={openApp}
                 finderItems={allDesktopItems}
                 initialNoteEntries={initialNoteEntries}
+                aboutData={aboutData}
+                wifeData={wifeData}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
               />

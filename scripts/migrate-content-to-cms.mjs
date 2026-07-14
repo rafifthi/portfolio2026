@@ -131,6 +131,45 @@ const noteSeeds = [
   },
 ];
 
+const profileSeeds = [
+  {
+    id: "seed-about-about-rafif",
+    type: "about",
+    slug: "about-rafif",
+    title: "Rafif Fathi Misbah",
+    status: "published",
+    sortOrder: 0,
+    data: {
+      title: "Rafif Fathi Misbah",
+      subtitle: "Product Manager · Business Analyst",
+      body: [
+        "I'm a product manager who likes the messy middle — the gap between a fuzzy business problem and something a real person can click. I sit across product, business analysis, and product design, mostly in SME and retail.",
+        "Day to day that means discovery, requirements, and the unglamorous backbone of shipping: backlogs, sprint planning, ticketing, QA. I map how a business actually works, then translate that into specs engineering can build without a séance.",
+        "I'm also an early adopter of agentic AI for the product pipeline — Hermes Agent, Claude Code, and Codex are part of how I move fast now, not a gimmick for a slide. If there's a way to compress idea-to-MVP, I'm trying it.",
+      ].join("\n\n"),
+      tags: ["Product Discovery", "Business Analysis", "Product Design", "Agentic AI", "MVP"],
+      photo: "",
+      finderIcon: "",
+      desktop: { label: "About Rafif", image: "", x: 44, y: 8, width: 150, icon: "UserRound", color: "#3b82f6" },
+    },
+  },
+  {
+    id: "seed-wife-wife",
+    type: "wife",
+    slug: "wife",
+    title: "Kanza",
+    status: "published",
+    sortOrder: 0,
+    data: {
+      name: "Kanza",
+      description: "Someone I call it home. She is bright as the sun even on a Monday. I married her on 19 July 2025, which is still the best idea I've ever had — and I have a lot of ideas.",
+      photo: "/images/kanza.JPG",
+      finderIcon: "/images/kanza.JPG",
+      desktop: { label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, icon: "Heart", color: "#ec4899" },
+    },
+  },
+];
+
 // --- Gallery (from src/lib/data.ts `photos`; src is empty in the static data
 // too — the site renders a gradient placeholder. Fill real images via /admin.)
 const photoSeeds = [
@@ -376,7 +415,7 @@ function slugify(value) {
 }
 
 function buildEntries({ publishPortfolio }) {
-  const entries = [];
+  const entries = [...profileSeeds];
 
   noteSeeds.forEach((note, index) => {
     const slug = slugify(note.title);
@@ -425,7 +464,7 @@ function buildEntries({ publishPortfolio }) {
 
 const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS cms_entries (
   id text PRIMARY KEY,
-  type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio')),
+  type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio', 'about', 'wife')),
   slug text NOT NULL,
   title text NOT NULL,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),

@@ -22,6 +22,8 @@ export interface AppDefinition {
 export interface DesktopItem {
   id: string;
   label: string;
+  finderLabel?: string;
+  finderIcon?: string;
   image: string;
   x: number;
   y: number;
@@ -35,6 +37,7 @@ export interface FinderItem {
   kind: string;
   icon: string;
   color: string;
+  image?: string;
   target:
     | { type: "app"; appId: string }
     | { type: "link"; href: string };
