@@ -155,14 +155,18 @@ export default function HomeClient({
     () =>
       portfolioEntries.map((entry, index) => {
         const desktop = entry.data.desktop;
+        // Older CMS seeds put TDN directly below README. Move only that legacy
+        // coordinate pair so existing custom placements remain untouched.
+        const usesLegacyTdnPosition = entry.slug === "tdn-case" && desktop?.x === 80 && desktop?.y === 14;
+        const position = usesLegacyTdnPosition ? { x: 76, y: 42 } : desktop;
         return {
           id: `cms-desktop-${entry.id}`,
           label: desktop?.label || entry.title,
           finderLabel: entry.data.title || entry.title,
           finderIcon: entry.data.finderIcon ? browserImageUrl(entry.data.finderIcon) : undefined,
           image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
-          x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
-          y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
+          x: Number.isFinite(position?.x) ? position.x : 10 + index * 8,
+          y: Number.isFinite(position?.y) ? position.y : 28 + index * 6,
           width: Number.isFinite(desktop?.width) ? desktop.width : 170,
           appId: `cms-portfolio:${entry.id}`,
         };
