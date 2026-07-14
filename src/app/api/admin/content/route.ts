@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isCmsEntryType, normalizeCmsEntryInput } from "@/lib/cms";
+import { CmsEntryType, isCmsEntryType, normalizeCmsEntryInput } from "@/lib/cms";
 import { createCmsEntry, listCmsEntries } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function isSingletonType(type: CmsEntryType) {
+  return type === "about" || type === "wife";
+}
 
 export async function GET(request: NextRequest) {
   if (!(await isAdminSession())) {
@@ -40,6 +44,16 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (isSingletonType(input.type)) {
+      const existingEntries = await listCmsEntries(input.type, true);
+      if (existingEntries.length) {
+        return NextResponse.json(
+          { error: `${input.type === "about" ? "About Rafif" : "Wife"} can only have one entry.` },
+          { status: 409 }
+        );
+      }
+    }
+
     const entry = await createCmsEntry(input);
     invalidatePublishedCmsEntries();
     return NextResponse.json({ entry }, { status: 201 });

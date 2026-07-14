@@ -46,6 +46,12 @@ const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "wife", label: "Wife", icon: "Heart" },
 ];
 
+const singletonTypes = new Set<CmsEntryType>(["about", "wife"]);
+
+function isSingletonType(type: CmsEntryType) {
+  return singletonTypes.has(type);
+}
+
 function emptyData(type: CmsEntryType): FormState {
   if (type === "notes") {
     return {
@@ -251,6 +257,7 @@ export default function AdminPanel() {
   const [notesFolder, setNotesFolder] = useState<string | null>(null);
   const [entries, setEntries] = useState<CmsEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => emptyData("gallery"));
   const [message, setMessage] = useState("");
   const [successToast, setSuccessToast] = useState<SuccessToast | null>(null);
@@ -289,6 +296,7 @@ export default function AdminPanel() {
       const others = current.filter((entry) => entry.type !== type);
       return [...others, ...data.entries];
     });
+    return data.entries;
   }
 
   useEffect(() => {
@@ -312,6 +320,7 @@ export default function AdminPanel() {
     const next = emptyData(type);
     setSelectedId(null);
     setForm(next);
+    setEditorOpen(true);
     if (type === "portfolio") {
       setBlocks(toEditorBlocks((next.data as PortfolioEntryData).blocks));
       setJsonMode(false);
@@ -327,6 +336,7 @@ export default function AdminPanel() {
       ...next,
       data: { ...(next.data as NoteData), folder },
     });
+    setEditorOpen(true);
   }
 
   function selectEntry(entry: CmsEntry) {
@@ -341,6 +351,7 @@ export default function AdminPanel() {
     setSelectedId(entry.id);
     setActiveType(entry.type);
     setForm(next);
+    setEditorOpen(true);
     if (entry.type === "portfolio") {
       const data = entry.data as PortfolioEntryData;
       setBlocks(toEditorBlocks(data.blocks || []));
@@ -348,6 +359,34 @@ export default function AdminPanel() {
       setJsonError("");
       setMetaText(metaToText(data.meta || []));
     }
+  }
+
+  async function showModule(type: CmsEntryType) {
+    setActiveType(type);
+    setSelectedId(null);
+    setForm(emptyData(type));
+    setEditorOpen(isSingletonType(type));
+    if (type === "notes") setNotesFolder(null);
+
+    if (!isSingletonType(type)) return;
+
+    try {
+      const moduleEntries = await loadEntries(type);
+      const existingEntry = moduleEntries[0];
+      if (existingEntry) {
+        selectEntry(existingEntry);
+      } else {
+        startNew(type);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to load content.");
+    }
+  }
+
+  function closeEditor() {
+    setSelectedId(null);
+    setForm(emptyData(activeType));
+    setEditorOpen(false);
   }
 
   function setCommon<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -385,7 +424,8 @@ export default function AdminPanel() {
     await fetch("/api/admin/auth", { method: "DELETE" });
     setAuthenticated(false);
     setEntries([]);
-    startNew(activeType);
+    setSelectedId(null);
+    setEditorOpen(false);
   }
 
   async function save(event: FormEvent) {
@@ -474,7 +514,7 @@ export default function AdminPanel() {
     try {
       await jsonFetch(`/api/admin/content/${selectedId}`, { method: "DELETE" });
       await loadEntries(activeType);
-      startNew(activeType);
+      closeEditor();
       showSuccessToast("Deleted successfully.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delete failed.");
@@ -501,7 +541,8 @@ export default function AdminPanel() {
       });
       await loadEntries("notes");
       setNotesFolder(null);
-      startNew("notes");
+      setSelectedId(null);
+      setEditorOpen(false);
       showSuccessToast(
         `Folder deleted, ${folderEntries.length} ${folderEntries.length === 1 ? "note" : "notes"} removed.`
       );
@@ -855,12 +896,7 @@ export default function AdminPanel() {
             <div className="text-xs font-semibold uppercase tracking-wider text-sky-300">Portfolio CMS</div>
             <div className="text-lg font-semibold text-white">DeimOS</div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            {message && <span role="status" aria-live="polite" className="text-sm text-white/60">{message}</span>}
-            <button onClick={logout} className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10">
-              Logout
-            </button>
-          </div>
+          {message && <span role="status" aria-live="polite" className="ml-auto text-sm text-white/60">{message}</span>}
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)]">
@@ -869,12 +905,8 @@ export default function AdminPanel() {
               {tabs.map((tab) => (
                 <button
                   key={tab.type}
-                  onClick={() => {
-                    setActiveType(tab.type);
-                    if (tab.type === "notes") setNotesFolder(null);
-                    startNew(tab.type);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition"
+                  onClick={() => showModule(tab.type)}
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition focus-visible:outline-2 focus-visible:outline-sky-400"
                   style={{
                     background: activeType === tab.type ? "rgba(14,165,233,0.22)" : "transparent",
                     color: activeType === tab.type ? "#e0f2fe" : "rgba(255,255,255,0.65)",
@@ -888,38 +920,15 @@ export default function AdminPanel() {
                 </button>
               ))}
             </div>
-
-            {activeType === "portfolio" && (
-              <button
-                onClick={() => startNew(activeType)}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15"
-              >
-                <Icon name="Plus" size={16} />
-                New Entry
-              </button>
-            )}
-
-            <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-auto">
-              {activeType === "portfolio" && filteredEntries.map((entry) => (
-                <button
-                  key={entry.id}
-                  onClick={() => selectEntry(entry)}
-                  className="w-full rounded-md border border-white/10 p-3 text-left transition hover:bg-white/[0.06]"
-                  style={{ background: selectedId === entry.id ? "rgba(255,255,255,0.08)" : "transparent" }}
-                >
-                  <div className="truncate text-sm font-medium text-white">{entry.title}</div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-white/45">
-                    <span>{entry.status}</span>
-                    <span>{entry.slug}</span>
-                  </div>
-                </button>
-              ))}
-              {activeType === "portfolio" && filteredEntries.length === 0 && (
-                <div className="rounded-md border border-dashed border-white/10 p-4 text-center text-sm text-white/35">
-                  No entries yet.
-                </div>
-              )}
-            </div>
+            <div className="min-h-6 flex-1" />
+            <button
+              type="button"
+              onClick={logout}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-white/55 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-sky-400"
+            >
+              <Icon name="LogOut" size={16} />
+              Logout
+            </button>
           </aside>
 
           <main className="min-h-0 overflow-auto p-5">
@@ -940,14 +949,14 @@ export default function AdminPanel() {
                 setFolder={setNotesFolder}
                 form={form}
                 selectedId={selectedId}
+                editorOpen={editorOpen}
                 busy={busy}
                 selectEntry={selectEntry}
                 startNewNote={startNewNote}
+                closeEditor={closeEditor}
                 save={save}
                 deleteFolder={removeNotesFolder}
-                remove={() => {
-                  void removeSelected().then(() => startNewNote(notesFolder || ""));
-                }}
+                remove={() => void removeSelected()}
                 setTitle={(title) => {
                   setCommon("title", title);
                   if (!selectedId) setCommon("slug", slugify(title));
@@ -955,8 +964,30 @@ export default function AdminPanel() {
                 setStatus={(status) => setCommon("status", status)}
                 setData={(updater) => setData<NoteData>(updater)}
               />
-            ) : (
+            ) : editorOpen ? (
             <form onSubmit={save} className="mx-auto max-w-5xl space-y-5">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                {!isSingletonType(activeType) && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={closeEditor}
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-white/55 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-sky-400"
+                    >
+                      <Icon name="ArrowLeft" size={16} />
+                      Back to {tabs.find((tab) => tab.type === activeType)?.label}
+                    </button>
+                    <div className="h-4 w-px bg-white/10" />
+                  </>
+                )}
+                <h1 className="text-lg font-semibold text-white">
+                  {isSingletonType(activeType)
+                    ? tabs.find((tab) => tab.type === activeType)?.label
+                    : selectedId
+                      ? form.title || "Untitled entry"
+                      : "New portfolio entry"}
+                </h1>
+              </div>
               <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-4">
                 <label className="md:col-span-2">
                   <span className="mb-1 block text-xs font-medium text-white/50">{form.type === "wife" ? "Name" : "Title"}</span>
@@ -1026,20 +1057,114 @@ export default function AdminPanel() {
 
               <div className="sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-[#090d16]/95 py-4">
                 <button disabled={busy} className="rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60">
-                  {busy ? "Saving..." : "Save Entry"}
+                  {busy ? "Saving..." : isSingletonType(activeType) ? "Save changes" : "Save Entry"}
                 </button>
-                {selectedId && (
+                {selectedId && !isSingletonType(activeType) && (
                   <button type="button" disabled={busy} onClick={removeSelected} className="rounded-md border border-rose-300/20 px-4 py-2 text-sm font-semibold text-rose-200 hover:bg-rose-400/10">
                     Delete
                   </button>
                 )}
               </div>
             </form>
+            ) : isSingletonType(activeType) ? null : (
+              <EntryTable
+                type={activeType}
+                entries={filteredEntries}
+                onCreate={() => startNew(activeType)}
+                onSelect={selectEntry}
+              />
             )}
           </main>
         </div>
       </div>
     </Shell>
+  );
+}
+
+function EntryTable({
+  type,
+  entries,
+  onCreate,
+  onSelect,
+}: {
+  type: Exclude<CmsEntryType, "gallery" | "notes">;
+  entries: CmsEntry[];
+  onCreate: () => void;
+  onSelect: (entry: CmsEntry) => void;
+}) {
+  const moduleName = tabs.find((tab) => tab.type === type)?.label || "Entries";
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-5">
+      <div className="flex items-start gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-white">{moduleName}</h1>
+          <p className="mt-1 text-sm text-white/45">
+            {entries.length} {entries.length === 1 ? "entry" : "entries"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreate}
+          className="ml-auto flex items-center gap-2 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        >
+          <Icon name="Plus" size={16} />
+          New entry
+        </button>
+      </div>
+
+      {entries.length ? (
+        <div className="overflow-hidden rounded-lg border border-white/10">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-white/[0.035] text-xs font-medium uppercase tracking-wider text-white/35">
+                <tr>
+                  <th className="px-4 py-3">Title</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Slug</th>
+                  <th className="px-4 py-3">Updated</th>
+                  <th className="w-12 px-4 py-3"><span className="sr-only">Open</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {entries.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    onClick={() => onSelect(entry)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelect(entry);
+                      }
+                    }}
+                    tabIndex={0}
+                    className="cursor-pointer bg-white/[0.015] text-white/65 transition hover:bg-white/[0.055] focus-visible:bg-sky-500/10 focus-visible:outline-none"
+                  >
+                    <td className="max-w-md px-4 py-3.5 font-medium text-white">{entry.title || "Untitled"}</td>
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${entry.status === "published" ? "bg-emerald-300/10 text-emerald-200" : "bg-white/[0.07] text-white/50"}`}>
+                        {entry.status}
+                      </span>
+                    </td>
+                    <td className="max-w-xs truncate px-4 py-3.5 font-mono text-xs text-white/40">{entry.slug}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-white/40">
+                      {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(entry.updatedAt))}
+                    </td>
+                    <td className="px-4 py-3.5 text-white/35"><Icon name="ChevronRight" size={16} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-white/10 py-16 text-center">
+          <Icon name="FilePlus2" size={24} className="mx-auto text-white/25" />
+          <p className="mt-3 text-sm font-medium text-white/65">No {moduleName.toLowerCase()} entries yet</p>
+          <p className="mt-1 text-sm text-white/35">Create the first entry to start managing this module.</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1576,9 +1701,11 @@ function NotesManager({
   setFolder,
   form,
   selectedId,
+  editorOpen,
   busy,
   selectEntry,
   startNewNote,
+  closeEditor,
   save,
   deleteFolder,
   remove,
@@ -1591,9 +1718,11 @@ function NotesManager({
   setFolder: (folder: string | null) => void;
   form: FormState;
   selectedId: string | null;
+  editorOpen: boolean;
   busy: boolean;
   selectEntry: (entry: CmsEntry) => void;
   startNewNote: (folder: string) => void;
+  closeEditor: () => void;
   save: (event: FormEvent) => void;
   deleteFolder: (folder: string) => Promise<void>;
   remove: () => void;
@@ -1646,7 +1775,7 @@ function NotesManager({
             {folders.map((name) => {
               const count = entries.filter((entry) => (entry.data as NoteData).folder === name).length;
               return (
-                <button key={name} type="button" onClick={() => { setFolder(name); startNewNote(name); }} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 text-left hover:border-sky-400/40 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-sky-400">
+                <button key={name} type="button" onClick={() => setFolder(name)} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 text-left hover:border-sky-400/40 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-sky-400">
                   <Icon name="Folder" size={24} className="text-amber-300" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-white">{name}</span>
@@ -1663,39 +1792,87 @@ function NotesManager({
     );
   }
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex items-center gap-2 text-sm">
-        <button type="button" onClick={() => setFolder(null)} className="rounded px-2 py-1 text-white/55 hover:bg-white/10 hover:text-white">Notes</button>
-        <Icon name="ChevronRight" size={14} className="text-white/30" />
-        <span className="font-medium text-white">{folder}</span>
-        <button type="button" onClick={() => startNewNote(folder)} className="ml-auto flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/15">
-          <Icon name="FilePlus2" size={15} /> New note
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={removeFolder}
-          className="flex items-center gap-2 rounded-md border border-rose-300/20 px-3 py-2 text-sm font-medium text-rose-200 hover:bg-rose-400/10 disabled:opacity-40"
-        >
-          <Icon name="Trash2" size={15} /> Delete folder
-        </button>
-      </div>
-
-      <div className="grid min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-white/[0.025] md:grid-cols-[260px_minmax(0,1fr)]">
-        <div className="border-b border-white/10 p-3 md:border-b-0 md:border-r">
-          <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-white/35">Files</div>
-          <div className="space-y-1">
-            {folderEntries.map((entry) => (
-              <button key={entry.id} type="button" onClick={() => selectEntry(entry)} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm ${selectedId === entry.id ? "bg-sky-500/20 text-sky-100" : "text-white/65 hover:bg-white/[0.06]"}`}>
-                <Icon name="FileText" size={16} />
-                <span className="truncate">{entry.title}</span>
-              </button>
-            ))}
-            {!folderEntries.length && <div className="px-2 py-6 text-center text-xs text-white/35">This folder is empty.</div>}
-          </div>
+  if (!editorOpen) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-5">
+        <div className="flex items-center gap-2 text-sm">
+          <button type="button" onClick={() => setFolder(null)} className="rounded px-2 py-1 text-white/55 hover:bg-white/10 hover:text-white">Notes</button>
+          <Icon name="ChevronRight" size={14} className="text-white/30" />
+          <span className="font-medium text-white">{folder}</span>
+          <button type="button" onClick={() => startNewNote(folder)} className="ml-auto flex items-center gap-2 rounded-md bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+            <Icon name="FilePlus2" size={15} /> New note
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={removeFolder}
+            className="flex items-center gap-2 rounded-md border border-rose-300/20 px-3 py-2 text-sm font-medium text-rose-200 hover:bg-rose-400/10 disabled:opacity-40"
+          >
+            <Icon name="Trash2" size={15} /> Delete folder
+          </button>
         </div>
 
+        {folderEntries.length ? (
+          <div className="overflow-hidden rounded-lg border border-white/10">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead className="bg-white/[0.035] text-xs font-medium uppercase tracking-wider text-white/35">
+                  <tr>
+                    <th className="px-4 py-3">File name</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Updated</th>
+                    <th className="w-12 px-4 py-3"><span className="sr-only">Open</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {folderEntries.map((entry) => {
+                    const data = entry.data as NoteData;
+                    return (
+                      <tr
+                        key={entry.id}
+                        onClick={() => selectEntry(entry)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            selectEntry(entry);
+                          }
+                        }}
+                        tabIndex={0}
+                        className="cursor-pointer bg-white/[0.015] text-white/60 transition hover:bg-white/[0.055] focus-visible:bg-sky-500/10 focus-visible:outline-none"
+                      >
+                        <td className="px-4 py-3.5 font-medium text-white">{entry.title || "Untitled"}</td>
+                        <td className="px-4 py-3.5">
+                          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${entry.status === "published" ? "bg-emerald-300/10 text-emerald-200" : "bg-white/[0.07] text-white/50"}`}>{entry.status}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3.5 text-white/45">{data.date}</td>
+                        <td className="whitespace-nowrap px-4 py-3.5 text-white/40">{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(entry.updatedAt))}</td>
+                        <td className="px-4 py-3.5 text-white/35"><Icon name="ChevronRight" size={16} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-white/10 py-16 text-center text-sm text-white/40">This folder is empty. Create the first note.</div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-4">
+      <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+        <button type="button" onClick={closeEditor} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-white/55 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-sky-400">
+          <Icon name="ArrowLeft" size={16} /> Back to {folder}
+        </button>
+        <div className="h-4 w-px bg-white/10" />
+        <h1 className="text-lg font-semibold text-white">{selectedId ? form.title || "Untitled note" : "New note"}</h1>
+      </div>
+
+      <div className="min-h-[620px] overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
         <form onSubmit={save} className="flex min-w-0 flex-col">
           <div className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,220px)_160px_150px]">
             <label>

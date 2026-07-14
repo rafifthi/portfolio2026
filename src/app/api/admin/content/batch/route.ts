@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { CmsEntryInput, normalizeCmsEntryInput } from "@/lib/cms";
-import { createCmsEntries, deleteCmsEntries, updateCmsEntries } from "@/lib/cms-db";
+import { CmsEntryInput, CmsEntryType, normalizeCmsEntryInput } from "@/lib/cms";
+import { createCmsEntries, deleteCmsEntries, listCmsEntries, updateCmsEntries } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
@@ -8,6 +8,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BATCH_SIZE = 500;
+
+function isSingletonType(type: CmsEntryType) {
+  return type === "about" || type === "wife";
+}
 
 type BatchBody = {
   operation?: "create" | "update" | "delete";
@@ -60,6 +64,25 @@ export async function POST(request: Request) {
         normalizeCmsEntryInput((entry ?? {}) as Partial<CmsEntryInput>)
       );
       if (inputs.some((entry) => !entry)) return invalidBatch();
+
+      const singletonTypes = (inputs as CmsEntryInput[])
+        .filter((entry) => isSingletonType(entry.type))
+        .map((entry) => entry.type);
+      if (new Set(singletonTypes).size !== singletonTypes.length) {
+        return NextResponse.json(
+          { error: "About Rafif and Wife can only have one entry each." },
+          { status: 409 }
+        );
+      }
+      const existingSingletons = await Promise.all(
+        singletonTypes.map(async (type) => ({ type, entries: await listCmsEntries(type, true) }))
+      );
+      if (existingSingletons.some(({ entries }) => entries.length)) {
+        return NextResponse.json(
+          { error: "About Rafif and Wife can only have one entry each." },
+          { status: 409 }
+        );
+      }
 
       const entries = await createCmsEntries(inputs as CmsEntryInput[]);
       invalidatePublishedCmsEntries();
