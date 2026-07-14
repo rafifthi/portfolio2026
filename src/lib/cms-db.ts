@@ -65,6 +65,17 @@ export async function listCmsEntries(type?: CmsEntryType, includeDrafts = false)
   return rows.map(toEntry);
 }
 
+export async function getCmsEntry(id: string) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM cms_entries
+    WHERE id = ${id}
+    LIMIT 1
+  ` as CmsRow[];
+
+  return rows[0] ? toEntry(rows[0]) : null;
+}
+
 export async function createCmsEntry(input: CmsEntryInput) {
   const sql = getSql();
   const id = randomUUID();
