@@ -158,11 +158,11 @@ export default function HomeClient({
         // Normalize the known seed coordinates so these two tall thumbnails
         // stay separated from README while custom CMS placements remain intact.
         const usesSeedLumonaPosition = entry.slug === "lumona-case" &&
-          (desktop?.x === 55 && desktop?.y === 10);
+          ((desktop?.x === 55 && desktop?.y === 10) || (desktop?.x === 26 && desktop?.y === 13));
         const usesSeedTdnPosition = entry.slug === "tdn-case" &&
           ((desktop?.x === 80 && desktop?.y === 14) || (desktop?.x === 76 && desktop?.y === 42));
         const position = usesSeedLumonaPosition
-          ? { x: 26, y: 13 }
+          ? { x: 30, y: 13 }
           : usesSeedTdnPosition
             ? { x: 70, y: 47 }
             : desktop;
