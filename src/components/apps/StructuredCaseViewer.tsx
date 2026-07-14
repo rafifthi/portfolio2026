@@ -214,38 +214,6 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
           )}
         </div>
 
-        {projectLink && (
-          <a
-            href={projectLink.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={projectLink.href}
-            aria-label={`${projectLink.label}: ${projectLink.href}`}
-            className="mb-6 flex max-w-2xl items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{
-              background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-              borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
-              outlineColor: "var(--accent)",
-            }}
-          >
-            <span
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
-              style={{ background: "var(--accent)", color: "#f8fafc" }}
-            >
-              <Icon name={projectLink.isFigma ? "PenTool" : "ExternalLink"} size={17} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                {projectLink.label}
-              </span>
-              <span className="mt-0.5 block truncate text-sm" style={{ color: "var(--accent)" }}>
-                {projectLink.displayUrl}
-              </span>
-            </span>
-            <Icon name="ArrowUpRight" size={18} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
-          </a>
-        )}
-
         <div className="max-w-2xl pb-6">
           {(data.blocks || []).map((block, index) => <Block key={`${block.type}-${index}`} block={block} />)}
         </div>
