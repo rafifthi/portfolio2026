@@ -1,8 +1,10 @@
 import { DesktopItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
 
 export const desktopItems: DesktopItem[] = [
-  { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
-  { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 62, y: 58, width: 160, appId: "cv" },
+  // Default desktop layout mirrors a naturally scattered macOS workspace.
+  // Keep these coordinates in percentages so the composition scales with desktop viewports.
+  { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 76, y: 7, width: 150, appId: "readme" },
+  { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 11, y: 29, width: 160, appId: "cv" },
 ];
 
 export const notes: Note[] = [

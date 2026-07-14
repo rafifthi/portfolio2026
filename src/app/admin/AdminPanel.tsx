@@ -82,8 +82,8 @@ function emptyData(type: CmsEntryType): FormState {
         desktop: {
           label: "",
           image: "",
-          x: 12,
-          y: 18,
+          x: 26,
+          y: 13,
           width: 170,
           icon: "BriefcaseBusiness",
           color: "#3b82f6",
@@ -109,7 +109,7 @@ function emptyData(type: CmsEntryType): FormState {
         desktop: {
           label: "About Rafif",
           image: "",
-          x: 44,
+          x: 18,
           y: 8,
           width: 150,
           icon: "UserRound",
@@ -134,8 +134,8 @@ function emptyData(type: CmsEntryType): FormState {
         desktop: {
           label: "wife",
           image: "",
-          x: 28,
-          y: 8,
+          x: 57,
+          y: 59,
           width: 140,
           icon: "Heart",
           color: "#ec4899",
