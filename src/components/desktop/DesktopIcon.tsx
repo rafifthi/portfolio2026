@@ -73,7 +73,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       >
         {/* Thumbnail */}
         <div
-          className="w-full overflow-hidden rounded-xl shadow-lg transition-all duration-150"
+          className={`${compact ? "h-20" : ""} w-full overflow-hidden rounded-xl shadow-lg transition-all duration-150 flex items-center justify-center`}
           style={{
             boxShadow: hovered
               ? `0 0 0 2px rgba(59,130,246,0.6), 0 8px 24px rgba(0,0,0,0.4)`
@@ -83,7 +83,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
           <img
             src={image}
             alt={label}
-            className={compact ? "w-full h-20 object-cover" : "w-full h-auto object-contain"}
+            className={compact ? "max-h-full max-w-full h-auto w-auto object-contain" : "w-full h-auto object-contain"}
             loading="eager"
             fetchPriority="high"
             draggable={false}

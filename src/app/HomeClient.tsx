@@ -602,6 +602,13 @@ export default function HomeClient({
               icon={config.icon}
               isMobile={isMobile}
               isTop={topWindow?.id === win.id}
+              mobilePresentation={
+                win.appId === "terminal"
+                  ? "terminal"
+                  : win.appId === "apps"
+                    ? "spotlight"
+                    : "full"
+              }
             >
               <AppComponent
                 windowId={win.id}
