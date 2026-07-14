@@ -202,8 +202,8 @@ const portfolioSeeds = [
       desktop: {
         label: "Supply Chain ERP",
         image: "https://picsum.photos/seed/lumona/320/240",
-        x: 26,
-        y: 13,
+        x: 22,
+        y: 17,
         width: 200,
       },
       blocks: [
@@ -261,8 +261,8 @@ const portfolioSeeds = [
       desktop: {
         label: "TDN Quick Commerce",
         image: "https://picsum.photos/seed/tdn-meat/260/340",
-        x: 76,
-        y: 42,
+        x: 70,
+        y: 47,
         width: 150,
       },
       blocks: [

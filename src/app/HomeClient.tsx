@@ -155,10 +155,17 @@ export default function HomeClient({
     () =>
       portfolioEntries.map((entry, index) => {
         const desktop = entry.data.desktop;
-        // Older CMS seeds put TDN directly below README. Move only that legacy
-        // coordinate pair so existing custom placements remain untouched.
-        const usesLegacyTdnPosition = entry.slug === "tdn-case" && desktop?.x === 80 && desktop?.y === 14;
-        const position = usesLegacyTdnPosition ? { x: 76, y: 42 } : desktop;
+        // Normalize the known seed coordinates so these two tall thumbnails
+        // stay separated from README while custom CMS placements remain intact.
+        const usesSeedLumonaPosition = entry.slug === "lumona-case" &&
+          ((desktop?.x === 55 && desktop?.y === 10) || (desktop?.x === 26 && desktop?.y === 13));
+        const usesSeedTdnPosition = entry.slug === "tdn-case" &&
+          ((desktop?.x === 80 && desktop?.y === 14) || (desktop?.x === 76 && desktop?.y === 42));
+        const position = usesSeedLumonaPosition
+          ? { x: 22, y: 17 }
+          : usesSeedTdnPosition
+            ? { x: 70, y: 47 }
+            : desktop;
         return {
           id: `cms-desktop-${entry.id}`,
           label: desktop?.label || entry.title,
