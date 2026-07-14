@@ -52,7 +52,7 @@ const migrations = [
            tags: ["Product Discovery", "Business Analysis", "Product Design", "Agentic AI", "MVP"],
            photo: "",
            finderIcon: "",
-           desktop: { label: "About Rafif", image: "", x: 44, y: 8, width: 150, icon: "UserRound", color: "#3b82f6" },
+           desktop: { label: "About Rafif", image: "", x: 18, y: 8, width: 150, icon: "UserRound", color: "#3b82f6" },
          })}$json$::jsonb
        ) ON CONFLICT (type, slug) DO NOTHING`,
       `INSERT INTO cms_entries (id, type, slug, title, status, sort_order, data)
@@ -63,7 +63,7 @@ const migrations = [
            description: "Someone I call it home. She is bright as the sun even on a Monday. I married her on 19 July 2025, which is still the best idea I've ever had — and I have a lot of ideas.",
            photo: "/images/kanza.JPG",
            finderIcon: "/images/kanza.JPG",
-           desktop: { label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, icon: "Heart", color: "#ec4899" },
+           desktop: { label: "wife", image: "/images/kanza.JPG", x: 57, y: 59, width: 140, icon: "Heart", color: "#ec4899" },
          })}$json$::jsonb
        ) ON CONFLICT (type, slug) DO NOTHING`,
     ],
