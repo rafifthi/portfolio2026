@@ -1,5 +1,5 @@
 import HomeClient from "./HomeClient";
-import type { CmsEntry, NoteData, PortfolioEntryData } from "@/lib/cms";
+import type { AboutData, CmsEntry, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
 import { listPublishedCmsEntries } from "@/lib/cms-cache";
 
 async function getPortfolioEntries(): Promise<CmsEntry<PortfolioEntryData>[]> {
@@ -24,16 +24,30 @@ async function getNoteEntries(): Promise<CmsEntry<NoteData>[]> {
   }
 }
 
+async function getProfileEntry<TData>(type: "about" | "wife"): Promise<CmsEntry<TData> | null> {
+  if (!process.env.DATABASE_URL) return null;
+
+  try {
+    return ((await listPublishedCmsEntries(type)) as CmsEntry<TData>[])[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
-  const [portfolioEntries, noteEntries] = await Promise.all([
+  const [portfolioEntries, noteEntries, aboutEntry, wifeEntry] = await Promise.all([
     getPortfolioEntries(),
     getNoteEntries(),
+    getProfileEntry<AboutData>("about"),
+    getProfileEntry<WifeData>("wife"),
   ]);
 
   return (
     <HomeClient
       initialPortfolioEntries={portfolioEntries}
       initialNoteEntries={noteEntries}
+      initialAboutEntry={aboutEntry}
+      initialWifeEntry={wifeEntry}
     />
   );
 }

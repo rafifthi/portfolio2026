@@ -13,6 +13,9 @@ CLOUDINARY_API_SECRET="..."
 CLOUDINARY_GALLERY_FOLDER="portfolio-cms/gallery"
 CLOUDINARY_PORTFOLIO_BANNER_FOLDER="portfolio-cms/portfolio-banners"
 CLOUDINARY_PORTFOLIO_ICON_FOLDER="portfolio-cms/portfolio-icons"
+CLOUDINARY_PORTFOLIO_FINDER_ICON_FOLDER="portfolio-cms/portfolio-finder-icons"
+CLOUDINARY_ABOUT_FOLDER="portfolio-cms/about"
+CLOUDINARY_WIFE_FOLDER="portfolio-cms/wife"
 ```
 
 `ADMIN_SESSION_SECRET` can be omitted locally, but production should set it to a
@@ -57,6 +60,9 @@ Cloudinary uploads use fixed folders by upload target:
 - `gallery` -> `CLOUDINARY_GALLERY_FOLDER`
 - `portfolio-banner` -> `CLOUDINARY_PORTFOLIO_BANNER_FOLDER`
 - `portfolio-icon` -> `CLOUDINARY_PORTFOLIO_ICON_FOLDER`
+- `portfolio-finder-icon` -> `CLOUDINARY_PORTFOLIO_FINDER_ICON_FOLDER`
+- About assets -> `CLOUDINARY_ABOUT_FOLDER`
+- Wife assets -> `CLOUDINARY_WIFE_FOLDER`
 
 Uploads accept image files up to 20 MB. New gallery, banner, and portfolio icon
 uploads retain Cloudinary metadata in the entry JSON alongside the display URL:

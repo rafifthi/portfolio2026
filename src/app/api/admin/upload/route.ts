@@ -7,7 +7,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-type UploadTarget = "gallery" | "portfolio-banner" | "portfolio-icon";
+const UPLOAD_TARGETS = [
+  "gallery",
+  "portfolio-banner",
+  "portfolio-icon",
+  "portfolio-finder-icon",
+  "about-photo",
+  "about-finder-icon",
+  "about-desktop-icon",
+  "wife-photo",
+  "wife-finder-icon",
+  "wife-desktop-icon",
+] as const;
+type UploadTarget = (typeof UPLOAD_TARGETS)[number];
 
 function cloudinaryConfig() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -32,7 +44,7 @@ function signUpload(params: Record<string, string | number>, apiSecret: string) 
 
 function normalizeUploadTarget(value: FormDataEntryValue | null): UploadTarget | null {
   if (value === null || value === "gallery") return "gallery";
-  if (value === "portfolio-banner" || value === "portfolio-icon") return value;
+  if (typeof value === "string" && UPLOAD_TARGETS.includes(value as UploadTarget)) return value as UploadTarget;
   return null;
 }
 
@@ -43,6 +55,18 @@ function fixedUploadFolder(target: UploadTarget) {
 
   if (target === "portfolio-icon") {
     return process.env.CLOUDINARY_PORTFOLIO_ICON_FOLDER || "portfolio-cms/portfolio-icons";
+  }
+
+  if (target === "portfolio-finder-icon") {
+    return process.env.CLOUDINARY_PORTFOLIO_FINDER_ICON_FOLDER || "portfolio-cms/portfolio-finder-icons";
+  }
+
+  if (target.startsWith("about-")) {
+    return process.env.CLOUDINARY_ABOUT_FOLDER || "portfolio-cms/about";
+  }
+
+  if (target.startsWith("wife-")) {
+    return process.env.CLOUDINARY_WIFE_FOLDER || "portfolio-cms/wife";
   }
 
   return process.env.CLOUDINARY_GALLERY_FOLDER || "portfolio-cms/gallery";

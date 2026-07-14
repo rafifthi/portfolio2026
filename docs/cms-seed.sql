@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS cms_entries (
   id text PRIMARY KEY,
-  type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio')),
+  type text NOT NULL CHECK (type IN ('gallery', 'notes', 'portfolio', 'about', 'wife')),
   slug text NOT NULL,
   title text NOT NULL,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
@@ -13,6 +13,16 @@ CREATE TABLE IF NOT EXISTS cms_entries (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (type, slug)
 );
+
+INSERT INTO cms_entries (id, type, slug, title, status, sort_order, data) VALUES ('seed-about-about-rafif', 'about', 'about-rafif', 'Rafif Fathi Misbah', 'published', 0, '{"title":"Rafif Fathi Misbah","subtitle":"Product Manager · Business Analyst","body":"I''m a product manager who likes the messy middle — the gap between a fuzzy business problem and something a real person can click. I sit across product, business analysis, and product design, mostly in SME and retail.\n\nDay to day that means discovery, requirements, and the unglamorous backbone of shipping: backlogs, sprint planning, ticketing, QA. I map how a business actually works, then translate that into specs engineering can build without a séance.\n\nI''m also an early adopter of agentic AI for the product pipeline — Hermes Agent, Claude Code, and Codex are part of how I move fast now, not a gimmick for a slide. If there''s a way to compress idea-to-MVP, I''m trying it.","tags":["Product Discovery","Business Analysis","Product Design","Agentic AI","MVP"],"photo":"","finderIcon":"","desktop":{"label":"About Rafif","image":"","x":44,"y":8,"width":150,"icon":"UserRound","color":"#3b82f6"}}'::jsonb)
+ON CONFLICT (type, slug) DO UPDATE SET
+  title = EXCLUDED.title, status = EXCLUDED.status, sort_order = EXCLUDED.sort_order,
+  data = EXCLUDED.data, updated_at = now();
+
+INSERT INTO cms_entries (id, type, slug, title, status, sort_order, data) VALUES ('seed-wife-wife', 'wife', 'wife', 'Kanza', 'published', 0, '{"name":"Kanza","description":"Someone I call it home. She is bright as the sun even on a Monday. I married her on 19 July 2025, which is still the best idea I''ve ever had — and I have a lot of ideas.","photo":"/images/kanza.JPG","finderIcon":"/images/kanza.JPG","desktop":{"label":"wife","image":"/images/kanza.JPG","x":28,"y":8,"width":140,"icon":"Heart","color":"#ec4899"}}'::jsonb)
+ON CONFLICT (type, slug) DO UPDATE SET
+  title = EXCLUDED.title, status = EXCLUDED.status, sort_order = EXCLUDED.sort_order,
+  data = EXCLUDED.data, updated_at = now();
 
 INSERT INTO cms_entries (id, type, slug, title, status, sort_order, data) VALUES ('seed-notes-product-manager', 'notes', 'product-manager', 'Product Manager', 'published', 0, '{"folder":"Career","title":"Product Manager","content":"Company: Alturian\nLocation: Jakarta, Indonesia\nPeriod: Dec 2025 - Present\nType: Full-time\n\nDescription: Own product development for ERP SaaS platform targeting SMEs, leading discovery, prioritization, and execution across Merchandising, PoS, and Bookkeeping.\n\nAchievements\n• Own product development for ERP SaaS platform (Merchandising, PoS, Bookkeeping) targeting SMEs\n• Lead product discovery, competitor analysis, and feature prioritization for MVP development\n• Translate business needs into product requirements, user flows, and system-level specifications\n• Work closely with engineering to manage execution, including sprint planning, ticketing, and QA\n• Balance speed and scalability by making trade-offs across business, UX, and technical constraints\n• Introduced AI-assisted workflows to reduce turnaround time from idea to implementation","date":"December 2025"}'::jsonb)
 ON CONFLICT (type, slug) DO UPDATE SET
