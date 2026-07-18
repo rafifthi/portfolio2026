@@ -82,6 +82,20 @@ const DOCK_ITEMS = [
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
+function halton(index: number, base: number) {
+  let result = 0;
+  let fraction = 1 / base;
+  let value = index;
+
+  while (value > 0) {
+    result += fraction * (value % base);
+    value = Math.floor(value / base);
+    fraction /= base;
+  }
+
+  return result;
+}
+
 interface HomeClientProps {
   initialPortfolioEntries: CmsEntry<PortfolioEntryData>[];
   initialNoteEntries: CmsEntry<NoteData>[];
@@ -178,14 +192,32 @@ export default function HomeClient({
     () =>
       portfolioEntries.map((entry, index) => {
         const desktop = entry.data.desktop;
+        // Normalize the known seed coordinates so these two tall thumbnails
+        // stay separated from README while custom CMS placements remain intact.
+        const isLumonaEntry = entry.slug === "lumona-case" ||
+          desktop?.label === "Lumona ERP" ||
+          entry.data.title === "Lumona ERP";
+        const usesSeedLumonaPosition = isLumonaEntry &&
+          ((desktop?.x === 55 && desktop?.y === 10) ||
+            (desktop?.x === 26 && desktop?.y === 13) ||
+            (desktop?.x === 30 && desktop?.y === 13) ||
+            (desktop?.x === 42 && desktop?.y === 13) ||
+            (desktop?.x === 56 && desktop?.y === 13));
+        const usesSeedTdnPosition = entry.slug === "tdn-case" &&
+          ((desktop?.x === 80 && desktop?.y === 14) || (desktop?.x === 76 && desktop?.y === 42));
+        const position = usesSeedLumonaPosition
+          ? { x: 50, y: 13 }
+          : usesSeedTdnPosition
+            ? { x: 70, y: 47 }
+            : desktop;
         return {
           id: `cms-desktop-${entry.id}`,
           label: desktop?.label || entry.title,
           finderLabel: entry.data.title || entry.title,
           finderIcon: entry.data.finderIcon ? browserImageUrl(entry.data.finderIcon) : undefined,
           image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
-          x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
-          y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
+          x: Number.isFinite(position?.x) ? position.x : 10 + index * 8,
+          y: Number.isFinite(position?.y) ? position.y : 28 + index * 6,
           width: Number.isFinite(desktop?.width) ? desktop.width : 170,
           appId: `cms-portfolio:${entry.id}`,
         };
@@ -226,6 +258,18 @@ export default function HomeClient({
   const allDesktopItems = useMemo(
     () => [...desktopItems, ...profileDesktopItems, ...cmsDesktopItems],
     [cmsDesktopItems, profileDesktopItems]
+  );
+
+  const scatteredDesktopItems = useMemo(
+    () =>
+      allDesktopItems.map((item, index) => ({
+        ...item,
+        // Coprime Halton bases produce an even, organic spread without rows.
+        // Existing positions stay stable when new portfolio entries are appended.
+        x: halton(index + 3, 2) * 100,
+        y: halton(index + 3, 3) * 100,
+      })),
+    [allDesktopItems]
   );
 
   const getAppConfig = useCallback(
@@ -576,7 +620,7 @@ export default function HomeClient({
         id="tour-desktop-area"
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
-        {allDesktopItems.map((item, i) => (
+        {(isMobile ? allDesktopItems : scatteredDesktopItems).map((item, i) => (
           <DesktopIcon
             key={item.id}
             id={item.id}
@@ -588,6 +632,7 @@ export default function HomeClient({
             onOpen={() => openApp(item.appId)}
             disableDrag={isMobile}
             compact={isMobile}
+            spreadPosition={!isMobile}
           />
         ))}
       </div>
@@ -633,6 +678,13 @@ export default function HomeClient({
               isMobile={isMobile}
               isTablet={isTablet}
               isTop={topWindow?.id === win.id}
+              mobilePresentation={
+                win.appId === "terminal"
+                  ? "terminal"
+                  : win.appId === "apps"
+                    ? "spotlight"
+                    : "full"
+              }
             >
               <AppComponent
                 windowId={win.id}

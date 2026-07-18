@@ -13,9 +13,13 @@ interface DesktopIconProps {
   onOpen: () => void;
   disableDrag?: boolean;
   compact?: boolean;
+  spreadPosition?: boolean;
 }
 
-export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false }: DesktopIconProps) {
+const DESKTOP_ICON_RADIUS = 14;
+const DESKTOP_ICON_FOOTPRINT = 190;
+
+export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false, spreadPosition = false }: DesktopIconProps) {
   const ptr = useRef({ downX: 0, downY: 0, dragged: false });
   const [hovered, setHovered] = useState(false);
 
@@ -60,8 +64,12 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       }}
       className="absolute flex flex-col items-center gap-0 cursor-pointer group select-none"
       style={{
-        left: `${x}%`,
-        top: `${y}%`,
+        left: spreadPosition
+          ? `calc(${x}% - ${(x / 100) * width}px)`
+          : `${x}%`,
+        top: spreadPosition
+          ? `calc(${y}% - ${(y / 100) * DESKTOP_ICON_FOOTPRINT}px)`
+          : `${y}%`,
         width,
         touchAction: disableDrag ? "manipulation" : "none",
       }}
@@ -82,8 +90,9 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       >
         {/* Thumbnail */}
         <div
-          className="w-full overflow-hidden rounded-xl shadow-lg transition-all duration-150"
+          className={`${compact ? "h-20" : ""} w-full overflow-hidden shadow-lg transition-all duration-150 flex items-center justify-center`}
           style={{
+            borderRadius: DESKTOP_ICON_RADIUS,
             boxShadow: hovered
               ? `0 0 0 2px rgba(59,130,246,0.6), 0 8px 24px rgba(0,0,0,0.4)`
               : `0 6px 20px rgba(0, 0, 0, 0.35)`,
@@ -92,7 +101,8 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
           <img
             src={image}
             alt={label}
-            className={compact ? "w-full h-20 object-cover" : "w-full h-auto object-contain"}
+            className={compact ? "max-h-full max-w-full h-auto w-auto object-contain" : "w-full h-auto object-contain"}
+            style={{ borderRadius: DESKTOP_ICON_RADIUS }}
             loading="eager"
             fetchPriority="high"
             draggable={false}

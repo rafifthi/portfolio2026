@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { normalizeCmsEntryInput } from "@/lib/cms";
-import { deleteCmsEntry, getCmsEntry, updateCmsEntry } from "@/lib/cms-db";
+import { CmsEntryType, normalizeCmsEntryInput } from "@/lib/cms";
+import { deleteCmsEntry, getCmsEntry, listCmsEntries, updateCmsEntry } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function isSingletonType(type: CmsEntryType) {
+  return type === "about" || type === "wife";
+}
 
 export async function GET(
   _request: Request,
@@ -46,6 +50,16 @@ export async function PATCH(
   }
 
   try {
+    if (isSingletonType(input.type)) {
+      const existingEntries = await listCmsEntries(input.type, true);
+      if (existingEntries.some((entry) => entry.id !== id)) {
+        return NextResponse.json(
+          { error: `${input.type === "about" ? "About Rafif" : "Wife"} can only have one entry.` },
+          { status: 409 }
+        );
+      }
+    }
+
     const entry = await updateCmsEntry(id, input);
     if (!entry) {
       return NextResponse.json({ error: "Content not found." }, { status: 404 });

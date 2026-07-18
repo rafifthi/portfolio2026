@@ -173,7 +173,7 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
   const projectLink = getProjectLink(data.projectUrl);
 
   return (
-    <div className="h-full flex flex-col" style={{ background: "var(--bg-app)" }}>
+    <div className="h-full min-h-0 flex flex-col overflow-hidden" style={{ background: "var(--bg-app)" }}>
       <div className="relative h-40 flex-shrink-0 overflow-hidden">
         {data.banner ? (
           <img src={data.banner} alt={data.title || entry.title} className="h-full w-full object-cover" draggable={false} />
@@ -181,7 +181,10 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, var(--bg-app) 0%, transparent 60%)" }} />
       </div>
 
-      <div className="flex-1 overflow-auto px-8 pb-8 -mt-6 relative">
+      <div
+        className="relative -mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 sm:px-8"
+        style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
+      >
         <h1 className="text-3xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>
           {data.title || entry.title}
         </h1>
