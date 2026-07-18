@@ -586,6 +586,7 @@ export default function HomeClient({
             y={isMobile ? Math.floor(i / 2) * 17 + 10 : item.y}
             width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
             onOpen={() => openApp(item.appId)}
+            disableDrag={isMobile}
             compact={isMobile}
           />
         ))}

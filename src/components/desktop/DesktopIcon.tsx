@@ -49,6 +49,15 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
         }
         ptr.current.dragged = false;
       }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${label}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       className="absolute flex flex-col items-center gap-0 cursor-pointer group select-none"
       style={{
         left: `${x}%`,
