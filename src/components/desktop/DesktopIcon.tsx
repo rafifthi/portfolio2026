@@ -22,7 +22,8 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
   const [hovered, setHovered] = useState(false);
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
       id={id}
       drag={!disableDrag}
       dragMomentum={false}
@@ -37,6 +38,13 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       }}
       onDragStart={() => { ptr.current.dragged = true; }}
       onPointerUp={(e) => {
+        // Mobile icons use the native click path below. On iOS, pointer-up can
+        // be cancelled by the browser's touch gesture handling even for a tap.
+        if (disableDrag) {
+          ptr.current.dragged = false;
+          return;
+        }
+
         // Robust click detection: open if the pointer barely moved between
         // down and up (a tap), regardless of how long the press took.
         if (ptr.current.dragged) {
@@ -51,16 +59,19 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
         }
         ptr.current.dragged = false;
       }}
-      role="button"
-      tabIndex={0}
+      onPointerCancel={() => {
+        ptr.current.dragged = false;
+      }}
       aria-label={`Open ${label}`}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
+      onClick={(e) => {
+        e.stopPropagation();
+        // Pointer clicks are handled above on draggable desktop icons. Native
+        // click is the reliable path for touch and keyboard activation.
+        if (disableDrag || e.detail === 0) {
           onOpen();
         }
       }}
-      className="absolute flex flex-col items-center gap-0 cursor-pointer group select-none"
+      className="absolute flex appearance-none flex-col items-center gap-0 border-0 bg-transparent p-0 text-inherit cursor-pointer group select-none"
       style={{
         left: `${x}%`,
         top: `${y}%`,
@@ -117,6 +128,6 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
           {label}
         </span>
       </div>
-    </motion.div>
+    </motion.button>
   );
 }
