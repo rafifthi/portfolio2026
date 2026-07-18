@@ -82,6 +82,26 @@ const DOCK_ITEMS = [
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
+const MOBILE_ICON_POSITIONS = [
+  { x: 7, y: 8 },
+  { x: 59, y: 16 },
+  { x: 31, y: 29 },
+  { x: 63, y: 39 },
+  { x: 4, y: 48 },
+  { x: 46, y: 57 },
+  { x: 14, y: 67 },
+];
+
+function getMobileIconPosition(index: number) {
+  if (MOBILE_ICON_POSITIONS[index]) return MOBILE_ICON_POSITIONS[index];
+
+  const overflowIndex = index - MOBILE_ICON_POSITIONS.length;
+  return {
+    x: overflowIndex % 2 === 0 ? 58 : 9,
+    y: 75 + Math.floor(overflowIndex / 2) * 14,
+  };
+}
+
 interface HomeClientProps {
   initialPortfolioEntries: CmsEntry<PortfolioEntryData>[];
   initialNoteEntries: CmsEntry<NoteData>[];
@@ -576,20 +596,23 @@ export default function HomeClient({
         id="tour-desktop-area"
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
-        {allDesktopItems.map((item, i) => (
-          <DesktopIcon
-            key={item.id}
-            id={item.id}
-            label={item.label}
-            image={item.image}
-            x={isMobile ? (i % 2 === 0 ? 8 : 56) : item.x}
-            y={isMobile ? Math.floor(i / 2) * 17 + 10 : item.y}
-            width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
-            onOpen={() => openApp(item.appId)}
-            disableDrag={isMobile}
-            compact={isMobile}
-          />
-        ))}
+        {allDesktopItems.map((item, i) => {
+          const mobilePosition = getMobileIconPosition(i);
+          return (
+            <DesktopIcon
+              key={item.id}
+              id={item.id}
+              label={item.label}
+              image={item.image}
+              x={isMobile ? mobilePosition.x : item.x}
+              y={isMobile ? mobilePosition.y : item.y}
+              width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
+              onOpen={() => openApp(item.appId)}
+              disableDrag={isMobile}
+              compact={isMobile}
+            />
+          );
+        })}
       </div>
 
       {/* Shared sheet backdrop (mobile) — single dim layer under all sheets */}
