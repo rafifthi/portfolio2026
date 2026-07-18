@@ -40,6 +40,7 @@ interface AppComponentProps {
   wifeData?: WifeData;
   isMaximized?: boolean;
   isMobile?: boolean;
+  isTablet?: boolean;
 }
 
 interface AppConfig {
@@ -81,18 +82,24 @@ const DOCK_ITEMS = [
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
-function halton(index: number, base: number) {
-  let result = 0;
-  let fraction = 1 / base;
-  let value = index;
+const MOBILE_ICON_POSITIONS = [
+  { x: 7, y: 8 },
+  { x: 59, y: 16 },
+  { x: 31, y: 29 },
+  { x: 63, y: 39 },
+  { x: 4, y: 48 },
+  { x: 46, y: 57 },
+  { x: 14, y: 67 },
+];
 
-  while (value > 0) {
-    result += fraction * (value % base);
-    value = Math.floor(value / base);
-    fraction /= base;
-  }
+function getMobileIconPosition(index: number) {
+  if (MOBILE_ICON_POSITIONS[index]) return MOBILE_ICON_POSITIONS[index];
 
-  return result;
+  const overflowIndex = index - MOBILE_ICON_POSITIONS.length;
+  return {
+    x: overflowIndex % 2 === 0 ? 58 : 9,
+    y: 75 + Math.floor(overflowIndex / 2) * 14,
+  };
 }
 
 interface HomeClientProps {
@@ -112,10 +119,11 @@ export default function HomeClient({
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const portfolioEntries = initialPortfolioEntries;
+  const [portfolioEntries, setPortfolioEntries] = useState(initialPortfolioEntries);
   const aboutData = useMemo<AboutData>(() => ({
     ...fallbackAboutData,
     ...initialAboutEntry?.data,
@@ -138,6 +146,21 @@ export default function HomeClient({
     setBootStatus(booted ? "done" : "booting");
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/content?type=portfolio")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { entries?: CmsEntry<PortfolioEntryData>[] } | null) => {
+        if (cancelled || !payload?.entries?.length) return;
+        setPortfolioEntries(payload.entries);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleBootComplete = useCallback(() => {
     // Always persist, including the slow-connection cap path, so a visitor is
     // never re-trapped in the boot screen.
@@ -146,10 +169,15 @@ export default function HomeClient({
   }, []);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const syncMobile = () => setIsMobile(mq.matches);
-    syncMobile();
-    mq.addEventListener("change", syncMobile);
+    const mobileMq = window.matchMedia("(max-width: 639px)");
+    const tabletMq = window.matchMedia("(min-width: 640px) and (max-width: 1023px)");
+    const syncViewportMode = () => {
+      setIsMobile(mobileMq.matches);
+      setIsTablet(tabletMq.matches);
+    };
+    syncViewportMode();
+    mobileMq.addEventListener("change", syncViewportMode);
+    tabletMq.addEventListener("change", syncViewportMode);
 
     const updateTime = () => {
       const now = new Date();
@@ -160,7 +188,8 @@ export default function HomeClient({
     const interval = setInterval(updateTime, 1000);
 
     return () => {
-      mq.removeEventListener("change", syncMobile);
+      mobileMq.removeEventListener("change", syncViewportMode);
+      tabletMq.removeEventListener("change", syncViewportMode);
       clearInterval(interval);
     };
   }, []);
@@ -169,32 +198,14 @@ export default function HomeClient({
     () =>
       portfolioEntries.map((entry, index) => {
         const desktop = entry.data.desktop;
-        // Normalize the known seed coordinates so these two tall thumbnails
-        // stay separated from README while custom CMS placements remain intact.
-        const isLumonaEntry = entry.slug === "lumona-case" ||
-          desktop?.label === "Lumona ERP" ||
-          entry.data.title === "Lumona ERP";
-        const usesSeedLumonaPosition = isLumonaEntry &&
-          ((desktop?.x === 55 && desktop?.y === 10) ||
-            (desktop?.x === 26 && desktop?.y === 13) ||
-            (desktop?.x === 30 && desktop?.y === 13) ||
-            (desktop?.x === 42 && desktop?.y === 13) ||
-            (desktop?.x === 56 && desktop?.y === 13));
-        const usesSeedTdnPosition = entry.slug === "tdn-case" &&
-          ((desktop?.x === 80 && desktop?.y === 14) || (desktop?.x === 76 && desktop?.y === 42));
-        const position = usesSeedLumonaPosition
-          ? { x: 50, y: 13 }
-          : usesSeedTdnPosition
-            ? { x: 70, y: 47 }
-            : desktop;
         return {
           id: `cms-desktop-${entry.id}`,
           label: desktop?.label || entry.title,
           finderLabel: entry.data.title || entry.title,
           finderIcon: entry.data.finderIcon ? browserImageUrl(entry.data.finderIcon) : undefined,
           image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
-          x: Number.isFinite(position?.x) ? position.x : 10 + index * 8,
-          y: Number.isFinite(position?.y) ? position.y : 28 + index * 6,
+          x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
+          y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
           width: Number.isFinite(desktop?.width) ? desktop.width : 170,
           appId: `cms-portfolio:${entry.id}`,
         };
@@ -235,18 +246,6 @@ export default function HomeClient({
   const allDesktopItems = useMemo(
     () => [...desktopItems, ...profileDesktopItems, ...cmsDesktopItems],
     [cmsDesktopItems, profileDesktopItems]
-  );
-
-  const scatteredDesktopItems = useMemo(
-    () =>
-      allDesktopItems.map((item, index) => ({
-        ...item,
-        // Coprime Halton bases produce an even, organic spread without rows.
-        // Existing positions stay stable when new portfolio entries are appended.
-        x: halton(index + 3, 2) * 100,
-        y: halton(index + 3, 3) * 100,
-      })),
-    [allDesktopItems]
   );
 
   const getAppConfig = useCallback(
@@ -321,17 +320,23 @@ export default function HomeClient({
       // so windows opened on mobile still restore correctly on desktop.
       const width = config.width;
       const height = config.height;
+      const frameWidth = isTablet
+        ? Math.min(Math.round(width * 0.86), window.innerWidth - 40)
+        : width;
+      const frameHeight = isTablet
+        ? Math.min(Math.round(height * 0.86), window.innerHeight - 104)
+        : height;
 
       const TOPBAR_H = 28;
-      const centerX = Math.max(20, (window.innerWidth - width) / 2);
-      const centerY = Math.max(TOPBAR_H + 12, (window.innerHeight - height) / 3);
+      const centerX = Math.max(20, (window.innerWidth - frameWidth) / 2);
+      const centerY = Math.max(TOPBAR_H + 12, (window.innerHeight - frameHeight) / 3);
 
       let posX: number, posY: number;
 
       if (appId === "apps") {
         // Spotlight always dead center
-        posX = (window.innerWidth - width) / 2;
-        posY = Math.max(60, (window.innerHeight - height) / 4);
+        posX = (window.innerWidth - frameWidth) / 2;
+        posY = Math.max(60, (window.innerHeight - frameHeight) / 4);
       } else if (windows.length === 0) {
         // First window: centered
         posX = centerX;
@@ -345,8 +350,8 @@ export default function HomeClient({
         posX = centerX + cascade;
         posY = centerY + cascade / 2;
         // Clamp within viewport bounds
-        const maxX = Math.max(window.innerWidth - width - 20, centerX);
-        const maxY = Math.max(window.innerHeight - height - 80, centerY);
+        const maxX = Math.max(window.innerWidth - frameWidth - 20, centerX);
+        const maxY = Math.max(window.innerHeight - frameHeight - 80, centerY);
         posX = Math.min(Math.max(posX, 20), maxX);
         posY = Math.min(Math.max(posY, 40), maxY);
       }
@@ -367,7 +372,7 @@ export default function HomeClient({
       setWindows((prev) => [...prev, newWindow]);
       setNextZIndex((z) => z + 1);
     },
-    [windows, nextZIndex, focusWindow, getAppConfig]
+    [windows, nextZIndex, focusWindow, getAppConfig, isTablet]
   );
 
   const closeWindow = useCallback((id: string) => {
@@ -591,20 +596,23 @@ export default function HomeClient({
         id="tour-desktop-area"
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
-        {(isMobile ? allDesktopItems : scatteredDesktopItems).map((item, i) => (
-          <DesktopIcon
-            key={item.id}
-            id={item.id}
-            label={item.label}
-            image={item.image}
-            x={isMobile ? (i % 2 === 0 ? 8 : 56) : item.x}
-            y={isMobile ? Math.floor(i / 2) * 17 + 10 : item.y}
-            width={isMobile ? 96 : item.width}
-            onOpen={() => openApp(item.appId)}
-            compact={isMobile}
-            spreadPosition={!isMobile}
-          />
-        ))}
+        {allDesktopItems.map((item, i) => {
+          const mobilePosition = getMobileIconPosition(i);
+          return (
+            <DesktopIcon
+              key={item.id}
+              id={item.id}
+              label={item.label}
+              image={item.image}
+              x={isMobile ? mobilePosition.x : item.x}
+              y={isMobile ? mobilePosition.y : item.y}
+              width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
+              onOpen={() => openApp(item.appId)}
+              disableDrag={isMobile}
+              compact={isMobile}
+            />
+          );
+        })}
       </div>
 
       {/* Shared sheet backdrop (mobile) — single dim layer under all sheets */}
@@ -646,6 +654,7 @@ export default function HomeClient({
               onMaximize={() => maximizeWindow(win.id)}
               icon={config.icon}
               isMobile={isMobile}
+              isTablet={isTablet}
               isTop={topWindow?.id === win.id}
               mobilePresentation={
                 win.appId === "terminal"
@@ -665,6 +674,7 @@ export default function HomeClient({
                 wifeData={wifeData}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
+                isTablet={isTablet}
               />
             </Window>
           );

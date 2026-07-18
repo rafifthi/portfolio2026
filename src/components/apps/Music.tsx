@@ -14,7 +14,13 @@ function formatTime(s: number) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-export default function Music({ isMobile = false }: { isMobile?: boolean }) {
+export default function Music({
+  isMobile = false,
+  isTablet = false,
+}: {
+  isMobile?: boolean;
+  isTablet?: boolean;
+}) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Mobile-only navigation: which root section is open (ignored on desktop)
@@ -515,7 +521,7 @@ export default function Music({ isMobile = false }: { isMobile?: boolean }) {
           ) : (
             <div>
               <h2 className="text-xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>Albums</h2>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-5">
+              <div className={`grid gap-5 ${isTablet ? "grid-cols-2" : "grid-cols-3"}`}>
                 {loadingAlbums
                   ? Array.from({ length: 10 }).map((_, i) => (
                       <div key={i} className="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "@/components/Icon";
 import { notes } from "@/lib/data";
 import { MobileStack, MobileBackHeader } from "@/components/mobile/MobileStack";
@@ -19,9 +20,11 @@ function entriesToNotes(entries: CmsEntry<NoteData>[]): Note[] {
 
 export default function Notes({
   isMobile = false,
+  isTablet = false,
   initialNoteEntries = [],
 }: {
   isMobile?: boolean;
+  isTablet?: boolean;
   initialNoteEntries?: CmsEntry<NoteData>[];
 }) {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -29,6 +32,7 @@ export default function Notes({
   const [search, setSearch] = useState("");
   const [cmsNotes, setCmsNotes] = useState<Note[]>(() => entriesToNotes(initialNoteEntries));
   const [folderSidebarOpen, setFolderSidebarOpen] = useState(true);
+  const [tabletFolderOverlayOpen, setTabletFolderOverlayOpen] = useState(false);
   // Mobile-only navigation: whether the notes list of a folder is open
   const [mobileFolderOpen, setMobileFolderOpen] = useState(false);
   const allNotes = useMemo<Note[]>(() => {
@@ -168,81 +172,136 @@ export default function Notes({
     : scopeNotes;
   const desktopNote = visibleNotes.find((note) => note.id === selectedNoteId) || visibleNotes[0];
   const scopeLabel = selectedFolder || "All Notes";
+  const folderNavigationOpen = isTablet ? tabletFolderOverlayOpen : folderSidebarOpen;
 
   const selectScope = (folder: string | null) => {
     setSelectedFolder(folder);
     setSelectedNoteId(null);
     setSearch("");
+    if (isTablet) setTabletFolderOverlayOpen(false);
   };
 
-  return (
-    <div className="flex h-full min-h-0 overflow-hidden" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
-      {folderSidebarOpen && (
-        <aside
-          className="flex w-[210px] shrink-0 flex-col border-r"
-          style={{ background: "var(--bg-sidebar)", borderColor: "var(--border-subtle)" }}
-          aria-label="Note folders"
+  const openFolderNavigation = () => {
+    if (isTablet) setTabletFolderOverlayOpen(true);
+    else setFolderSidebarOpen(true);
+  };
+
+  const closeFolderNavigation = () => {
+    if (isTablet) setTabletFolderOverlayOpen(false);
+    else setFolderSidebarOpen(false);
+  };
+
+  const folderNavigation = (
+    <aside
+      className={
+        isTablet
+          ? "flex h-full w-full flex-col overflow-hidden rounded-2xl border shadow-2xl"
+          : "flex w-[210px] shrink-0 flex-col border-r"
+      }
+      style={
+        isTablet
+          ? {
+              background: "color-mix(in srgb, var(--bg-window) 88%, transparent)",
+              borderColor: "var(--border-hover)",
+              backdropFilter: "blur(36px) saturate(180%)",
+              WebkitBackdropFilter: "blur(36px) saturate(180%)",
+            }
+          : { background: "var(--bg-sidebar)", borderColor: "var(--border-subtle)" }
+      }
+      aria-label="Note folders"
+    >
+      <div className="flex h-12 shrink-0 items-center justify-between border-b px-3" style={{ borderColor: "var(--border-subtle)" }}>
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon name="StickyNote" size={16} style={{ color: "rgba(245,158,11,0.95)" }} />
+          <span className="truncate text-sm font-semibold">Notes</span>
+        </div>
+        <button
+          type="button"
+          onClick={closeFolderNavigation}
+          className="flex size-8 items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
+          style={{ color: "var(--text-secondary)" }}
+          aria-label="Close folder navigation"
+          title="Hide folders"
         >
-          <div className="flex h-12 shrink-0 items-center justify-between border-b px-3" style={{ borderColor: "var(--border-subtle)" }}>
-            <div className="flex min-w-0 items-center gap-2">
-              <Icon name="StickyNote" size={16} style={{ color: "rgba(245,158,11,0.95)" }} />
-              <span className="truncate text-sm font-semibold">Notes</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFolderSidebarOpen(false)}
-              className="flex size-8 items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
-              style={{ color: "var(--text-secondary)" }}
-              aria-label="Collapse folder sidebar"
-              title="Hide folders"
-            >
-              <Icon name="PanelLeftClose" size={16} />
-            </button>
-          </div>
+          <Icon name={isTablet ? "X" : "PanelLeftClose"} size={16} />
+        </button>
+      </div>
 
-          <nav className="flex-1 overflow-auto p-2">
-            <button
-              type="button"
-              onClick={() => selectScope(null)}
-              className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors"
-              style={{
-                background: selectedFolder === null ? "var(--accent)" : "transparent",
-                color: selectedFolder === null ? "white" : "var(--text-primary)",
-              }}
-              aria-current={selectedFolder === null ? "page" : undefined}
-            >
-              <Icon name="Files" size={17} />
-              <span className="min-w-0 flex-1 truncate font-medium">All Notes</span>
-              <span className="text-xs opacity-75">{allNotes.length}</span>
-            </button>
+      <nav className="flex-1 overflow-auto p-2">
+        <button
+          type="button"
+          onClick={() => selectScope(null)}
+          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors"
+          style={{
+            background: selectedFolder === null ? "var(--accent)" : "transparent",
+            color: selectedFolder === null ? "white" : "var(--text-primary)",
+          }}
+          aria-current={selectedFolder === null ? "page" : undefined}
+        >
+          <Icon name="Files" size={17} />
+          <span className="min-w-0 flex-1 truncate font-medium">All Notes</span>
+          <span className="text-xs opacity-75">{allNotes.length}</span>
+        </button>
 
-            <div className="mb-1 mt-5 px-2.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
-              Folders
-            </div>
-            <div className="space-y-0.5">
-              {folders.map((folder) => {
-                const isActive = selectedFolder === folder;
-                return (
-                  <button
-                    key={folder}
-                    type="button"
-                    onClick={() => selectScope(folder)}
-                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors"
-                    style={{
-                      background: isActive ? "var(--accent)" : "transparent",
-                      color: isActive ? "white" : "var(--text-primary)",
-                    }}
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    <Icon name="Folder" size={17} style={{ color: isActive ? "white" : "rgba(245,158,11,0.95)" }} />
-                    <span className="min-w-0 flex-1 truncate">{folder}</span>
-                    <span className="text-xs opacity-75">{folderCounts.get(folder) || 0}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </nav>
-        </aside>
+        <div className="mb-1 mt-5 px-2.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
+          Folders
+        </div>
+        <div className="space-y-0.5">
+          {folders.map((folder) => {
+            const isActive = selectedFolder === folder;
+            return (
+              <button
+                key={folder}
+                type="button"
+                onClick={() => selectScope(folder)}
+                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors"
+                style={{
+                  background: isActive ? "var(--accent)" : "transparent",
+                  color: isActive ? "white" : "var(--text-primary)",
+                }}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <Icon name="Folder" size={17} style={{ color: isActive ? "white" : "rgba(245,158,11,0.95)" }} />
+                <span className="min-w-0 flex-1 truncate">{folder}</span>
+                <span className="text-xs opacity-75">{folderCounts.get(folder) || 0}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </aside>
+  );
+
+  return (
+    <div className="relative flex h-full min-h-0 overflow-hidden" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
+      {isTablet ? (
+        <AnimatePresence>
+          {tabletFolderOverlayOpen && (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Close folder navigation"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onClick={closeFolderNavigation}
+                className="absolute inset-0 z-20 bg-black/20"
+              />
+              <motion.div
+                initial={{ opacity: 0, x: -18, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -12, scale: 0.98 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-y-2 left-2 z-30 w-[220px]"
+              >
+                {folderNavigation}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      ) : (
+        folderSidebarOpen && folderNavigation
       )}
 
       <section
@@ -251,13 +310,13 @@ export default function Notes({
         aria-label={`${scopeLabel} list`}
       >
         <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3" style={{ borderColor: "var(--border-subtle)" }}>
-          {!folderSidebarOpen && (
+          {!folderNavigationOpen && (
             <button
               type="button"
-              onClick={() => setFolderSidebarOpen(true)}
+              onClick={openFolderNavigation}
               className="flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-[var(--bg-hover)]"
               style={{ color: "var(--text-secondary)" }}
-              aria-label="Expand folder sidebar"
+              aria-label="Open folder navigation"
               title="Show folders"
             >
               <Icon name="PanelLeftOpen" size={16} />

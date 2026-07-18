@@ -7,11 +7,11 @@ import { NotionBlock } from "@/lib/types";
 
 function MetaBadge({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex min-w-0 flex-col gap-1">
       <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--text-tertiary)" }}>
         {label}
       </span>
-      <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+      <span className="break-words text-sm font-medium leading-5 sm:text-[15px]" style={{ color: "var(--text-primary)" }}>
         {value}
       </span>
     </div>
@@ -185,12 +185,12 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
         className="relative -mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 sm:px-8"
         style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
       >
-        <h1 className="text-3xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>
+        <h1 className="mb-5 break-words text-2xl font-bold leading-tight sm:text-3xl" style={{ color: "var(--text-primary)", textWrap: "balance" }}>
           {data.title || entry.title}
         </h1>
 
-        <div className="mb-6 flex flex-wrap items-end gap-x-6 gap-y-3 border-b pb-4" style={{ borderColor: "var(--border-subtle)" }}>
-          <div className="flex min-w-0 flex-1 flex-wrap gap-x-6 gap-y-3">
+        <div className="mb-6 flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between" style={{ borderColor: "var(--border-subtle)" }}>
+          <div className="grid min-w-0 grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3 lg:flex lg:flex-1 lg:flex-wrap lg:gap-x-6">
             {(data.meta || []).map((item) => <MetaBadge key={item.label} label={item.label} value={item.value} />)}
           </div>
 
@@ -201,7 +201,7 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
               rel="noopener noreferrer"
               title={projectLink.href}
               aria-label={`${projectLink.label}: ${projectLink.href}`}
-              className="flex max-w-full items-center gap-2 rounded-lg border px-3 py-2 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-72"
+              className="flex w-full min-w-0 items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 lg:w-auto lg:max-w-80 lg:shrink-0"
               style={{
                 background: "color-mix(in srgb, var(--accent) 12%, transparent)",
                 borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",

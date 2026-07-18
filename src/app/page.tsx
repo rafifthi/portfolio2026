@@ -1,4 +1,5 @@
 import HomeClient from "./HomeClient";
+import { connection } from "next/server";
 import type { AboutData, CmsEntry, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
 import { listPublishedCmsEntries } from "@/lib/cms-cache";
 
@@ -35,6 +36,10 @@ async function getProfileEntry<TData>(type: "about" | "wife"): Promise<CmsEntry<
 }
 
 export default async function Home() {
+  // DATABASE_URL and published CMS content must be resolved at request time.
+  // Otherwise a build without runtime env can permanently prerender an empty desktop.
+  await connection();
+
   const [portfolioEntries, noteEntries, aboutEntry, wifeEntry] = await Promise.all([
     getPortfolioEntries(),
     getNoteEntries(),
