@@ -150,7 +150,7 @@ const profileSeeds = [
       tags: ["Product Discovery", "Business Analysis", "Product Design", "Agentic AI", "MVP"],
       photo: "",
       finderIcon: "",
-      desktop: { label: "About Rafif", image: "", x: 18, y: 8, width: 150, icon: "UserRound", color: "#3b82f6" },
+      desktop: { label: "About Rafif", image: "", x: 44, y: 8, width: 150, icon: "UserRound", color: "#3b82f6" },
     },
   },
   {
@@ -165,7 +165,7 @@ const profileSeeds = [
       description: "Someone I call it home. She is bright as the sun even on a Monday. I married her on 19 July 2025, which is still the best idea I've ever had — and I have a lot of ideas.",
       photo: "/images/kanza.JPG",
       finderIcon: "/images/kanza.JPG",
-      desktop: { label: "wife", image: "/images/kanza.JPG", x: 57, y: 59, width: 140, icon: "Heart", color: "#ec4899" },
+      desktop: { label: "wife", image: "/images/kanza.JPG", x: 28, y: 8, width: 140, icon: "Heart", color: "#ec4899" },
     },
   },
 ];
@@ -202,8 +202,8 @@ const portfolioSeeds = [
       desktop: {
         label: "Supply Chain ERP",
         image: "https://picsum.photos/seed/lumona/320/240",
-        x: 50,
-        y: 13,
+        x: 55,
+        y: 10,
         width: 200,
       },
       blocks: [
@@ -261,8 +261,8 @@ const portfolioSeeds = [
       desktop: {
         label: "TDN Quick Commerce",
         image: "https://picsum.photos/seed/tdn-meat/260/340",
-        x: 70,
-        y: 47,
+        x: 80,
+        y: 14,
         width: 150,
       },
       blocks: [
@@ -317,8 +317,8 @@ const portfolioSeeds = [
       desktop: {
         label: "Digital Invitation",
         image: "https://picsum.photos/seed/invite/300/260",
-        x: 33,
-        y: 57,
+        x: 20,
+        y: 55,
         width: 190,
       },
       blocks: [
@@ -371,8 +371,8 @@ const portfolioSeeds = [
       desktop: {
         label: "Loyalty Web App",
         image: "https://picsum.photos/seed/maroon-fashion/300/240",
-        x: 51,
-        y: 10,
+        x: 42,
+        y: 58,
         width: 160,
       },
       blocks: [

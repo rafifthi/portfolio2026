@@ -14,7 +14,7 @@ export const fallbackAboutData: AboutData = {
   desktop: {
     label: "About Rafif",
     image: "",
-    x: 18,
+    x: 44,
     y: 8,
     width: 150,
     icon: "UserRound",
@@ -31,8 +31,8 @@ export const fallbackWifeData: WifeData = {
   desktop: {
     label: "wife",
     image: "/images/kanza.JPG",
-    x: 57,
-    y: 59,
+    x: 28,
+    y: 8,
     width: 140,
     icon: "Heart",
     color: "#ec4899",

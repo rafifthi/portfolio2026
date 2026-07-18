@@ -13,13 +13,11 @@ interface DesktopIconProps {
   onOpen: () => void;
   disableDrag?: boolean;
   compact?: boolean;
-  spreadPosition?: boolean;
 }
 
 const DESKTOP_ICON_RADIUS = 14;
-const DESKTOP_ICON_FOOTPRINT = 190;
 
-export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false, spreadPosition = false }: DesktopIconProps) {
+export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false }: DesktopIconProps) {
   const ptr = useRef({ downX: 0, downY: 0, dragged: false });
   const [hovered, setHovered] = useState(false);
 
@@ -64,12 +62,8 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       }}
       className="absolute flex flex-col items-center gap-0 cursor-pointer group select-none"
       style={{
-        left: spreadPosition
-          ? `calc(${x}% - ${(x / 100) * width}px)`
-          : `${x}%`,
-        top: spreadPosition
-          ? `calc(${y}% - ${(y / 100) * DESKTOP_ICON_FOOTPRINT}px)`
-          : `${y}%`,
+        left: `${x}%`,
+        top: `${y}%`,
         width,
         touchAction: disableDrag ? "manipulation" : "none",
       }}
