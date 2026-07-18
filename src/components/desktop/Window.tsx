@@ -22,6 +22,7 @@ interface WindowProps {
   children: React.ReactNode;
   icon?: string;
   isMobile?: boolean;
+  isTablet?: boolean;
   isTop?: boolean;
 }
 
@@ -50,6 +51,7 @@ export default function Window({
   children,
   icon,
   isMobile = false,
+  isTablet = false,
   isTop = true,
 }: WindowProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
@@ -61,14 +63,16 @@ export default function Window({
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const TOPBAR_H = 28; // h-7 desktop menu bar
-      const safeX = Math.min(Math.max(x, 0), Math.max(vw - width - 20, 0));
-      const safeY = Math.max(Math.min(y, Math.max(vh - height - 80, TOPBAR_H)), TOPBAR_H);
+      const frameWidth = isTablet ? Math.min(Math.round(width * 0.86), vw - 40) : width;
+      const frameHeight = isTablet ? Math.min(Math.round(height * 0.86), vh - 104) : height;
+      const safeX = Math.min(Math.max(x, 0), Math.max(vw - frameWidth - 20, 0));
+      const safeY = Math.max(Math.min(y, Math.max(vh - frameHeight - 80, TOPBAR_H)), TOPBAR_H);
       setPosition({ x: safeX, y: safeY });
     };
     clamp();
     window.addEventListener("resize", clamp);
     return () => window.removeEventListener("resize", clamp);
-  }, [x, y, width, height]);
+  }, [x, y, width, height, isTablet]);
 
   if (isMinimized) return null;
 
@@ -105,7 +109,7 @@ export default function Window({
 
             paddingBottom: "env(safe-area-inset-bottom)",
           }}
-          className="window-glass rounded-t-[28px] overflow-hidden flex flex-col"
+          className="window-glass min-h-0 rounded-t-[28px] overflow-hidden flex flex-col"
         >
           {/* Grabber + iOS nav bar act as the drag handle */}
           <div
@@ -146,7 +150,7 @@ export default function Window({
 
           {/* Content — natively scrollable */}
           <div
-            className="flex-1 overflow-auto overscroll-contain relative"
+            className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain relative"
             style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
           >
             {children}
@@ -160,6 +164,8 @@ export default function Window({
       <motion.div
         data-window-id={id}
         drag
+        dragListener={false}
+        dragControls={dragControls}
         dragMomentum={false}
         dragConstraints={constraintsRef}
         initial={{ opacity: 0, scale: 0.9 }}
@@ -173,17 +179,19 @@ export default function Window({
         onPointerDown={onFocus}
         style={{
           position: "absolute",
-          width: isMaximized ? "100vw" : width,
-          height: isMaximized ? "calc(100vh - 28px)" : height,
-          maxWidth: isMaximized ? undefined : "calc(100vw - 24px)",
+          width: isMaximized ? "100vw" : isTablet ? Math.round(width * 0.86) : width,
+          height: isMaximized ? "calc(100dvh - 28px)" : isTablet ? Math.round(height * 0.86) : height,
+          maxWidth: isMaximized ? undefined : isTablet ? "calc(100vw - 40px)" : "calc(100vw - 24px)",
+          maxHeight: isMaximized ? undefined : isTablet ? "calc(100dvh - 104px)" : undefined,
           zIndex,
           left: 0,
           top: 0,
         }}
-        className="window-glass rounded-xl overflow-hidden flex flex-col"
+        className="window-glass min-h-0 rounded-xl overflow-hidden flex flex-col"
       >
         {/* Title Bar */}
         <div
+          onPointerDown={(e) => dragControls.start(e)}
           className="h-9 flex items-center px-4 select-none border-b cursor-default transition-colors duration-300"
           style={{
             background: "var(--bg-titlebar)",
@@ -233,7 +241,7 @@ export default function Window({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden relative">
+        <div className="min-h-0 flex-1 overflow-hidden relative">
           {children}
         </div>
       </motion.div>

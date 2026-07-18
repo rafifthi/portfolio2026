@@ -40,6 +40,7 @@ interface AppComponentProps {
   wifeData?: WifeData;
   isMaximized?: boolean;
   isMobile?: boolean;
+  isTablet?: boolean;
 }
 
 interface AppConfig {
@@ -98,10 +99,11 @@ export default function HomeClient({
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const portfolioEntries = initialPortfolioEntries;
+  const [portfolioEntries, setPortfolioEntries] = useState(initialPortfolioEntries);
   const aboutData = useMemo<AboutData>(() => ({
     ...fallbackAboutData,
     ...initialAboutEntry?.data,
@@ -124,6 +126,21 @@ export default function HomeClient({
     setBootStatus(booted ? "done" : "booting");
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/content?type=portfolio")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { entries?: CmsEntry<PortfolioEntryData>[] } | null) => {
+        if (cancelled || !payload?.entries?.length) return;
+        setPortfolioEntries(payload.entries);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleBootComplete = useCallback(() => {
     // Always persist, including the slow-connection cap path, so a visitor is
     // never re-trapped in the boot screen.
@@ -132,10 +149,15 @@ export default function HomeClient({
   }, []);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const syncMobile = () => setIsMobile(mq.matches);
-    syncMobile();
-    mq.addEventListener("change", syncMobile);
+    const mobileMq = window.matchMedia("(max-width: 639px)");
+    const tabletMq = window.matchMedia("(min-width: 640px) and (max-width: 1023px)");
+    const syncViewportMode = () => {
+      setIsMobile(mobileMq.matches);
+      setIsTablet(tabletMq.matches);
+    };
+    syncViewportMode();
+    mobileMq.addEventListener("change", syncViewportMode);
+    tabletMq.addEventListener("change", syncViewportMode);
 
     const updateTime = () => {
       const now = new Date();
@@ -146,7 +168,8 @@ export default function HomeClient({
     const interval = setInterval(updateTime, 1000);
 
     return () => {
-      mq.removeEventListener("change", syncMobile);
+      mobileMq.removeEventListener("change", syncViewportMode);
+      tabletMq.removeEventListener("change", syncViewportMode);
       clearInterval(interval);
     };
   }, []);
@@ -277,17 +300,23 @@ export default function HomeClient({
       // so windows opened on mobile still restore correctly on desktop.
       const width = config.width;
       const height = config.height;
+      const frameWidth = isTablet
+        ? Math.min(Math.round(width * 0.86), window.innerWidth - 40)
+        : width;
+      const frameHeight = isTablet
+        ? Math.min(Math.round(height * 0.86), window.innerHeight - 104)
+        : height;
 
       const TOPBAR_H = 28;
-      const centerX = Math.max(20, (window.innerWidth - width) / 2);
-      const centerY = Math.max(TOPBAR_H + 12, (window.innerHeight - height) / 3);
+      const centerX = Math.max(20, (window.innerWidth - frameWidth) / 2);
+      const centerY = Math.max(TOPBAR_H + 12, (window.innerHeight - frameHeight) / 3);
 
       let posX: number, posY: number;
 
       if (appId === "apps") {
         // Spotlight always dead center
-        posX = (window.innerWidth - width) / 2;
-        posY = Math.max(60, (window.innerHeight - height) / 4);
+        posX = (window.innerWidth - frameWidth) / 2;
+        posY = Math.max(60, (window.innerHeight - frameHeight) / 4);
       } else if (windows.length === 0) {
         // First window: centered
         posX = centerX;
@@ -301,8 +330,8 @@ export default function HomeClient({
         posX = centerX + cascade;
         posY = centerY + cascade / 2;
         // Clamp within viewport bounds
-        const maxX = Math.max(window.innerWidth - width - 20, centerX);
-        const maxY = Math.max(window.innerHeight - height - 80, centerY);
+        const maxX = Math.max(window.innerWidth - frameWidth - 20, centerX);
+        const maxY = Math.max(window.innerHeight - frameHeight - 80, centerY);
         posX = Math.min(Math.max(posX, 20), maxX);
         posY = Math.min(Math.max(posY, 40), maxY);
       }
@@ -323,7 +352,7 @@ export default function HomeClient({
       setWindows((prev) => [...prev, newWindow]);
       setNextZIndex((z) => z + 1);
     },
-    [windows, nextZIndex, focusWindow, getAppConfig]
+    [windows, nextZIndex, focusWindow, getAppConfig, isTablet]
   );
 
   const closeWindow = useCallback((id: string) => {
@@ -555,7 +584,7 @@ export default function HomeClient({
             image={item.image}
             x={isMobile ? (i % 2 === 0 ? 8 : 56) : item.x}
             y={isMobile ? Math.floor(i / 2) * 17 + 10 : item.y}
-            width={isMobile ? 96 : item.width}
+            width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
             onOpen={() => openApp(item.appId)}
             compact={isMobile}
           />
@@ -601,6 +630,7 @@ export default function HomeClient({
               onMaximize={() => maximizeWindow(win.id)}
               icon={config.icon}
               isMobile={isMobile}
+              isTablet={isTablet}
               isTop={topWindow?.id === win.id}
             >
               <AppComponent
@@ -613,6 +643,7 @@ export default function HomeClient({
                 wifeData={wifeData}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
+                isTablet={isTablet}
               />
             </Window>
           );

@@ -157,7 +157,7 @@ export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark
       className={`dock-glass fixed z-50 ${
         isMobile
           ? "bottom-0 left-0 right-0 px-3 pt-2.5 rounded-t-3xl overflow-x-auto no-scrollbar"
-          : "bottom-4 left-1/2 -translate-x-1/2 px-3 py-2.5 rounded-2xl"
+          : "bottom-4 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 px-3 py-2.5 rounded-2xl"
       }`}
       style={
         isMobile
@@ -166,7 +166,7 @@ export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark
       }
     >
       {/* w-max + mx-auto centers the icons when they fit, scrolls when they don't */}
-      <div className={`flex items-center ${isMobile ? "gap-3 w-max mx-auto" : "gap-2.5"}`}>
+      <div className={`flex w-max items-center ${isMobile ? "gap-3 mx-auto" : "gap-2.5"}`}>
         {visibleItems.map((item) => (
           <DockItemComponent
             key={item.id}
