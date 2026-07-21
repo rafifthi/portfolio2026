@@ -199,6 +199,8 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
               href={projectLink.href}
               target="_blank"
               rel="noopener noreferrer"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
               title={projectLink.href}
               aria-label={`${projectLink.label}: ${projectLink.href}`}
               className="flex max-w-full items-center gap-2 rounded-lg border px-3 py-2 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-72"
