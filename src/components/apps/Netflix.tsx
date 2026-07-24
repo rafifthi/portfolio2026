@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/Icon";
 import {
@@ -363,9 +364,14 @@ function DetailModal({
     </div>
   );
 
-  return (
+  // Portal to <body> so the modal centers on the actual screen (like the real
+  // Netflix app) instead of being trapped inside the app window, which is
+  // cascade-positioned on desktop and transform-scaled on tablet.
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
     <motion.div
-      className="absolute inset-0 z-40"
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
@@ -373,37 +379,47 @@ function DetailModal({
       <button
         type="button"
         aria-label="Close details"
-        className="absolute inset-0 h-full w-full bg-black/60"
+        className="absolute inset-0 h-full w-full bg-black/70"
         onClick={onClose}
       />
       {isMobile ? (
         <motion.div
-          className="absolute inset-x-0 bottom-0 top-[8%] overflow-y-auto rounded-t-2xl shadow-2xl"
+          key="netflix-detail-mobile"
+          className="absolute inset-0 overflow-y-auto"
           style={{ background: CARD }}
-          initial={{ y: "12%" }}
+          initial={{ y: "100%" }}
           animate={{ y: 0 }}
-          transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
+          transition={{ type: "tween", duration: 0.28, ease: "easeOut" }}
         >
           {card}
         </motion.div>
       ) : (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
-          <motion.div
-            className="pointer-events-auto max-h-full w-full max-w-2xl overflow-y-auto rounded-lg shadow-2xl"
-            style={{ background: CARD }}
-            initial={{ scale: 0.94 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
-          >
-            {card}
-          </motion.div>
-        </div>
+        <motion.div
+          key="netflix-detail-desktop"
+          className="relative z-10 mx-4 max-h-[86vh] w-full max-w-[850px] overflow-y-auto overflow-x-hidden rounded-lg shadow-2xl"
+          style={{ background: CARD }}
+          initial={{ scale: 0.96, opacity: 0.6 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
+        >
+          {card}
+        </motion.div>
       )}
     </motion.div>
   );
+
+  return createPortal(overlay, document.body);
 }
 
-export default function Netflix({ isMobile = false }: { isMobile?: boolean }) {
+export default function Netflix({
+  isMobile = false,
+  netflixMovies: movies = netflixMovies,
+  netflixSeries: series = netflixSeries,
+}: {
+  isMobile?: boolean;
+  netflixMovies?: NetflixTitle[];
+  netflixSeries?: NetflixTitle[];
+}) {
   const [selected, setSelected] = useState<NetflixTitle | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -432,20 +448,20 @@ export default function Netflix({ isMobile = false }: { isMobile?: boolean }) {
       <NetflixNav isMobile={isMobile} />
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <HeroBanner
-          title={netflixMovies[0]}
+          title={movies[0]}
           isMobile={isMobile}
-          onMoreInfo={() => setSelected(netflixMovies[0])}
+          onMoreInfo={() => setSelected(movies[0])}
           onPlay={handlePlay}
         />
         <Top10Row
           label="Top 10 Movies"
-          titles={netflixMovies}
+          titles={movies}
           isMobile={isMobile}
           onSelect={setSelected}
         />
         <Top10Row
           label="Top 10 Series"
-          titles={netflixSeries}
+          titles={series}
           isMobile={isMobile}
           onSelect={setSelected}
         />

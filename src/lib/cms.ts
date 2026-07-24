@@ -1,6 +1,6 @@
 import { NotionBlock } from "./types";
 
-export type CmsEntryType = "gallery" | "notes" | "portfolio" | "about" | "wife";
+export type CmsEntryType = "gallery" | "notes" | "portfolio" | "about" | "wife" | "netflix";
 export type CmsStatus = "draft" | "published";
 
 export interface CmsEntry<TData = unknown> {
@@ -101,6 +101,19 @@ export interface WifeData {
   desktop: PortfolioDesktopData;
 }
 
+export interface NetflixTitleData {
+  kind: "movie" | "series";
+  year: number;
+  maturity: string;
+  duration: string;
+  match: number;
+  genres: string[];
+  cast: string[];
+  description: string;
+  poster: string;
+  backdrop: string;
+}
+
 export interface CmsEntryInput<TData = unknown> {
   type: CmsEntryType;
   slug: string;
@@ -110,7 +123,7 @@ export interface CmsEntryInput<TData = unknown> {
   data: TData;
 }
 
-export const CMS_TYPES: CmsEntryType[] = ["gallery", "notes", "portfolio", "about", "wife"];
+export const CMS_TYPES: CmsEntryType[] = ["gallery", "notes", "portfolio", "about", "wife", "netflix"];
 
 export function isCmsEntryType(value: string | null): value is CmsEntryType {
   return CMS_TYPES.includes(value as CmsEntryType);

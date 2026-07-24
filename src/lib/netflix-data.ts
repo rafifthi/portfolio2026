@@ -2,6 +2,12 @@
 // Edit the two arrays below to change the Top 10 lists — ranks drive the big
 // numerals, `poster`/`backdrop` are TMDB image file paths (copy them from any
 // title page on themoviedb.org).
+//
+// These arrays are the fallback shown when the CMS has no published Netflix
+// entries (or the database is unavailable). Published entries edited in
+// /admin take precedence via `buildNetflixLists`.
+
+import type { CmsEntry, NetflixTitleData } from "./cms";
 
 export interface NetflixTitle {
   id: string;
@@ -350,3 +356,26 @@ export const netflixSeries: NetflixTitle[] = [
     backdrop: "/y9ekzkPFmWSqUU3Kj0wHmYUM8qu.jpg",
   },
 ];
+
+// Build the movies/series lists shown in the app from published CMS entries,
+// falling back per-kind to the static arrays above when a kind has no entries.
+// Entries arrive already ordered by sort_order; rank is derived from position.
+export function buildNetflixLists(entries: CmsEntry<NetflixTitleData>[]) {
+  const forKind = (kind: "movie" | "series", fallback: NetflixTitle[]): NetflixTitle[] => {
+    const list = entries
+      .filter((entry) => entry.data.kind === kind)
+      .slice(0, 10)
+      .map((entry, index) => ({
+        id: entry.slug,
+        rank: index + 1,
+        title: entry.title,
+        ...entry.data,
+      }));
+    return list.length ? list : fallback;
+  };
+
+  return {
+    movies: forKind("movie", netflixMovies),
+    series: forKind("series", netflixSeries),
+  };
+}

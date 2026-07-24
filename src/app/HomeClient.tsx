@@ -28,7 +28,8 @@ import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { DesktopItem, WindowState } from "@/lib/types";
-import { AboutData, browserImageUrl, CmsEntry, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import { AboutData, browserImageUrl, CmsEntry, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import { buildNetflixLists, NetflixTitle } from "@/lib/netflix-data";
 import { fallbackAboutData, fallbackWifeData } from "@/lib/profile-content";
 
 interface AppComponentProps {
@@ -39,6 +40,8 @@ interface AppComponentProps {
   initialNoteEntries?: CmsEntry<NoteData>[];
   aboutData?: AboutData;
   wifeData?: WifeData;
+  netflixMovies?: NetflixTitle[];
+  netflixSeries?: NetflixTitle[];
   isMaximized?: boolean;
   isMobile?: boolean;
   isTablet?: boolean;
@@ -110,6 +113,7 @@ interface HomeClientProps {
   initialNoteEntries: CmsEntry<NoteData>[];
   initialAboutEntry: CmsEntry<AboutData> | null;
   initialWifeEntry: CmsEntry<WifeData> | null;
+  initialNetflixEntries: CmsEntry<NetflixTitleData>[];
 }
 
 export default function HomeClient({
@@ -117,6 +121,7 @@ export default function HomeClient({
   initialNoteEntries,
   initialAboutEntry,
   initialWifeEntry,
+  initialNetflixEntries,
 }: HomeClientProps) {
   const { theme, toggle, wallpaper } = useTheme();
   const [windows, setWindows] = useState<WindowState[]>([]);
@@ -137,6 +142,7 @@ export default function HomeClient({
     ...initialWifeEntry?.data,
     desktop: { ...fallbackWifeData.desktop, ...initialWifeEntry?.data.desktop },
   }), [initialWifeEntry]);
+  const netflixLists = useMemo(() => buildNetflixLists(initialNetflixEntries), [initialNetflixEntries]);
   // "pending" on both server and first client render (no hydration mismatch);
   // resolved to "booting" (first visit) or "done" (returning) in an effect.
   const [bootStatus, setBootStatus] = useState<"pending" | "booting" | "done">("pending");
@@ -675,6 +681,8 @@ export default function HomeClient({
                 initialNoteEntries={initialNoteEntries}
                 aboutData={aboutData}
                 wifeData={wifeData}
+                netflixMovies={netflixLists.movies}
+                netflixSeries={netflixLists.series}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
                 isTablet={isTablet}

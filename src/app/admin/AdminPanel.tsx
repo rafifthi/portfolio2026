@@ -10,6 +10,7 @@ import {
   CmsEntryType,
   CmsImageMetadata,
   GalleryImageData,
+  NetflixTitleData,
   NoteData,
   PortfolioEntryData,
   WifeData,
@@ -22,7 +23,7 @@ import { NotionBlock } from "@/lib/types";
 import { Icon } from "@/components/Icon";
 import { BlockEditor, EditorBlock, fromEditorBlocks, toEditorBlocks } from "./BlockEditor";
 
-type FormData = GalleryImageData | NoteData | PortfolioEntryData | AboutData | WifeData;
+type FormData = GalleryImageData | NoteData | PortfolioEntryData | AboutData | WifeData | NetflixTitleData;
 type FormState = CmsEntryInput<FormData>;
 type UploadTarget =
   | "gallery"
@@ -44,6 +45,7 @@ const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "portfolio", label: "Portfolio", icon: "BriefcaseBusiness" },
   { type: "about", label: "About Rafif", icon: "UserRound" },
   { type: "wife", label: "Wife", icon: "Heart" },
+  { type: "netflix", label: "Netflix", icon: "Play" },
 ];
 
 const singletonTypes = new Set<CmsEntryType>(["about", "wife"]);
@@ -146,6 +148,28 @@ function emptyData(type: CmsEntryType): FormState {
           icon: "Heart",
           color: "#ec4899",
         },
+      },
+    };
+  }
+
+  if (type === "netflix") {
+    return {
+      type,
+      title: "",
+      slug: "",
+      status: "draft",
+      sortOrder: 0,
+      data: {
+        kind: "movie",
+        year: new Date().getFullYear(),
+        maturity: "PG-13",
+        duration: "",
+        match: 95,
+        genres: [],
+        cast: [],
+        description: "",
+        poster: "",
+        backdrop: "",
       },
     };
   }
@@ -985,7 +1009,7 @@ export default function AdminPanel() {
                     ? tabs.find((tab) => tab.type === activeType)?.label
                     : selectedId
                       ? form.title || "Untitled entry"
-                      : "New portfolio entry"}
+                      : `New ${tabs.find((tab) => tab.type === activeType)?.label ?? "entry"} entry`}
                 </h1>
               </div>
               <section className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.03] p-4 md:grid-cols-4">
@@ -1052,6 +1076,17 @@ export default function AdminPanel() {
                   data={form.data as WifeData}
                   setData={(updater) => setData<WifeData>(updater)}
                   upload={(file, target) => uploadImage(file, target)}
+                />
+              )}
+
+              {form.type === "netflix" && (
+                <NetflixForm
+                  data={form.data as NetflixTitleData}
+                  setData={(updater) => setData<NetflixTitleData>(updater)}
+                  setTitle={(title) => {
+                    setCommon("title", title);
+                    if (!selectedId) setCommon("slug", slugify(title));
+                  }}
                 />
               )}
 
@@ -1315,6 +1350,333 @@ function WifeForm({ data, setData, upload }: {
         </div>
       </section>
       <DesktopAssetFields data={data} setData={setData} upload={(file) => upload(file, "wife-desktop-icon")} />
+    </div>
+  );
+}
+
+interface TmdbSearchResult {
+  tmdbId: number;
+  mediaType: "movie" | "tv";
+  title: string;
+  year: number | null;
+  posterPath: string | null;
+}
+
+interface TmdbPrefill {
+  kind: "movie" | "series";
+  title: string;
+  year: number;
+  description: string;
+  poster: string;
+  backdrop: string;
+  genres: string[];
+  cast: string[];
+  duration: string;
+}
+
+function TmdbSearchField({ onPick }: { onPick: (prefill: TmdbPrefill) => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<TmdbSearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [disabled, setDisabled] = useState(false);
+
+  const shortQuery = query.trim().length < 2;
+
+  useEffect(() => {
+    const q = query.trim();
+    if (disabled || q.length < 2) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await jsonFetch<{ results: TmdbSearchResult[] }>(
+          `/api/tmdb?action=search&query=${encodeURIComponent(q)}`
+        );
+        if (cancelled) return;
+        setResults(data.results ?? []);
+        setError(null);
+        setOpen(true);
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Search failed.";
+        if (message.toLowerCase().includes("not configured")) {
+          setDisabled(true);
+        } else {
+          setError(message);
+          setOpen(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, disabled]);
+
+  async function pick(result: TmdbSearchResult) {
+    try {
+      const data = await jsonFetch<{ prefill: TmdbPrefill }>(
+        `/api/tmdb?action=details&mediaType=${result.mediaType}&id=${result.tmdbId}`
+      );
+      onPick(data.prefill);
+      setQuery("");
+      setResults([]);
+      setOpen(false);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load details.");
+      setOpen(true);
+    }
+  }
+
+  if (disabled) {
+    return (
+      <label>
+        <span className="mb-1 block text-xs font-medium text-white/50">Search TMDB</span>
+        <input disabled placeholder="Suggestions disabled" className={inputClass("opacity-60")} />
+        <span className="mt-1 block text-xs text-amber-300/80">
+          Set TMDB_API_KEY in your environment to enable suggestions — manual entry still works.
+        </span>
+      </label>
+    );
+  }
+
+  return (
+    <label className="relative block">
+      <span className="mb-1 block text-xs font-medium text-white/50">Search TMDB</span>
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onFocus={() => results.length && setOpen(true)}
+        onBlur={() => setOpen(false)}
+        placeholder="Type a movie or series title…"
+        className={inputClass()}
+      />
+      {loading && !shortQuery && <span className="mt-1 block text-xs text-white/35">Searching…</span>}
+      {open && !shortQuery && (results.length > 0 || error) && (
+        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-white/10 bg-[#0d1220] shadow-xl">
+          {error ? (
+            <p className="px-3 py-2 text-xs text-rose-300">{error}</p>
+          ) : (
+            results.map((result) => (
+              <button
+                key={`${result.mediaType}-${result.tmdbId}`}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  void pick(result);
+                }}
+                className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-white/10"
+              >
+                {result.posterPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`https://image.tmdb.org/t/p/w92${result.posterPath}`}
+                    alt=""
+                    className="h-14 w-10 shrink-0 rounded object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-white/10 text-[10px] text-white/40">
+                    N/A
+                  </div>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-white">{result.title}</span>
+                  <span className="text-xs text-white/40">{result.year ?? "—"}</span>
+                </span>
+                <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase text-white/50">
+                  {result.mediaType === "tv" ? "Series" : "Movie"}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </label>
+  );
+}
+
+function TmdbPathField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label>
+      <span className="mb-1 block text-xs font-medium text-white/50">{label}</span>
+      <div className="flex items-center gap-3">
+        {value.startsWith("/") && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`https://image.tmdb.org/t/p/w92${value}`}
+            alt=""
+            className="h-14 w-10 shrink-0 rounded object-cover"
+          />
+        )}
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="/abc123.jpg"
+          className={inputClass()}
+        />
+      </div>
+    </label>
+  );
+}
+
+function NetflixForm({ data, setData, setTitle }: {
+  data: NetflixTitleData;
+  setData: (updater: (data: NetflixTitleData) => NetflixTitleData) => void;
+  setTitle: (title: string) => void;
+}) {
+  function handlePick(prefill: TmdbPrefill) {
+    setTitle(prefill.title);
+    setData((current) => {
+      const untouchedMaturity =
+        current.maturity === "" || current.maturity === "PG-13" || current.maturity === "TV-MA";
+      const maturity = untouchedMaturity
+        ? prefill.kind === "series"
+          ? "TV-MA"
+          : "PG-13"
+        : current.maturity;
+      return {
+        ...current,
+        kind: prefill.kind,
+        year: prefill.year,
+        description: prefill.description,
+        poster: prefill.poster,
+        backdrop: prefill.backdrop,
+        genres: prefill.genres,
+        cast: prefill.cast,
+        duration: prefill.duration,
+        maturity,
+      };
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Title details</h2>
+          <p className="mt-1 text-xs text-white/40">
+            Search TMDB to auto-fill, or edit any field manually. Rank comes from the Sort Order above,
+            among published entries of the same kind (top 10 are shown).
+          </p>
+        </div>
+        <TmdbSearchField onPick={handlePick} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Kind</span>
+            <select
+              value={data.kind}
+              onChange={(event) =>
+                setData((current) => ({ ...current, kind: event.target.value === "series" ? "series" : "movie" }))
+              }
+              className={inputClass()}
+            >
+              <option value="movie">Movie</option>
+              <option value="series">Series</option>
+            </select>
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Year</span>
+            <input
+              type="number"
+              value={data.year}
+              onChange={(event) => setData((current) => ({ ...current, year: Number(event.target.value) }))}
+              className={inputClass()}
+            />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Maturity</span>
+            <input
+              value={data.maturity}
+              onChange={(event) => setData((current) => ({ ...current, maturity: event.target.value }))}
+              placeholder="PG-13 / TV-MA"
+              className={inputClass()}
+            />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Duration</span>
+            <input
+              value={data.duration}
+              onChange={(event) => setData((current) => ({ ...current, duration: event.target.value }))}
+              placeholder="2h 28m / 5 Seasons"
+              className={inputClass()}
+            />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Match %</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={data.match}
+              onChange={(event) => setData((current) => ({ ...current, match: Number(event.target.value) }))}
+              className={inputClass()}
+            />
+          </label>
+        </div>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Genres</span>
+          <input
+            value={data.genres.join(", ")}
+            onChange={(event) =>
+              setData((current) => ({
+                ...current,
+                genres: event.target.value.split(",").map((genre) => genre.trim()).filter(Boolean),
+              }))
+            }
+            placeholder="Sci-Fi, Action, Thriller"
+            className={inputClass()}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Cast</span>
+          <input
+            value={data.cast.join(", ")}
+            onChange={(event) =>
+              setData((current) => ({
+                ...current,
+                cast: event.target.value.split(",").map((name) => name.trim()).filter(Boolean),
+              }))
+            }
+            placeholder="Actor One, Actor Two, Actor Three"
+            className={inputClass()}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Description</span>
+          <textarea
+            value={data.description}
+            onChange={(event) => setData((current) => ({ ...current, description: event.target.value }))}
+            className={inputClass("min-h-32 leading-relaxed")}
+          />
+        </label>
+        <div className="grid gap-4 md:grid-cols-2">
+          <TmdbPathField
+            label="Poster path"
+            value={data.poster}
+            onChange={(poster) => setData((current) => ({ ...current, poster }))}
+          />
+          <TmdbPathField
+            label="Backdrop path"
+            value={data.backdrop}
+            onChange={(backdrop) => setData((current) => ({ ...current, backdrop }))}
+          />
+        </div>
+      </section>
     </div>
   );
 }
