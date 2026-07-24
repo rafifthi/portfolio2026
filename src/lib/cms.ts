@@ -110,6 +110,7 @@ export interface NetflixTitleData {
   match: number;
   genres: string[];
   cast: string[];
+  creators?: string[];
   description: string;
   poster: string;
   backdrop: string;

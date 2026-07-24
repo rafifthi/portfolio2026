@@ -424,12 +424,20 @@ function DetailModal({
 
         <p className="text-sm leading-relaxed text-neutral-200">{title.description}</p>
 
-        <div className="flex flex-col gap-1 text-[13px]">
+        <div className="grid gap-x-5 gap-y-1 text-[13px] sm:grid-cols-2">
           <p>
             <span className="text-neutral-500">Cast: </span>
             <span className="text-neutral-200">{title.cast.join(", ")}</span>
           </p>
-          <p>
+          {title.creators?.length ? (
+            <p>
+              <span className="text-neutral-500">
+                {title.kind === "movie" ? "Director: " : "Creator: "}
+              </span>
+              <span className="text-neutral-200">{title.creators.join(", ")}</span>
+            </p>
+          ) : null}
+          <p className="sm:col-span-2">
             <span className="text-neutral-500">Genres: </span>
             <span className="text-neutral-200">{title.genres.join(", ")}</span>
           </p>

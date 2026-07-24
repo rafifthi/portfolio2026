@@ -168,6 +168,7 @@ function emptyData(type: CmsEntryType): FormState {
         match: 95,
         genres: [],
         cast: [],
+        creators: [],
         description: "",
         poster: "",
         backdrop: "",
@@ -1875,6 +1876,7 @@ interface TmdbPrefill {
   backdrop: string;
   genres: string[];
   cast: string[];
+  creators: string[];
   duration: string;
 }
 
@@ -2062,6 +2064,7 @@ function NetflixForm({ data, setData, setTitle }: {
         backdrop: prefill.backdrop,
         genres: prefill.genres,
         cast: prefill.cast,
+        creators: prefill.creators,
         duration: prefill.duration,
         maturity,
       };
@@ -2175,6 +2178,22 @@ function NetflixForm({ data, setData, setTitle }: {
               }))
             }
             placeholder="Actor One, Actor Two, Actor Three"
+            className={inputClass()}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">
+            {data.kind === "movie" ? "Director" : "Creator"}
+          </span>
+          <input
+            value={(data.creators ?? []).join(", ")}
+            onChange={(event) =>
+              setData((current) => ({
+                ...current,
+                creators: event.target.value.split(",").map((name) => name.trim()).filter(Boolean),
+              }))
+            }
+            placeholder={data.kind === "movie" ? "Director name" : "Creator one, Creator two"}
             className={inputClass()}
           />
         </label>
