@@ -42,6 +42,7 @@ interface AppComponentProps {
   wifeData?: WifeData;
   netflixMovies?: NetflixTitle[];
   netflixSeries?: NetflixTitle[];
+  netflixMyList?: NetflixTitle[];
   isMaximized?: boolean;
   isMobile?: boolean;
   isTablet?: boolean;
@@ -683,6 +684,7 @@ export default function HomeClient({
                 wifeData={wifeData}
                 netflixMovies={netflixLists.movies}
                 netflixSeries={netflixLists.series}
+                netflixMyList={netflixLists.myList}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
                 isTablet={isTablet}
