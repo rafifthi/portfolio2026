@@ -247,6 +247,80 @@ function Top10Row({
   );
 }
 
+function MyListRow({
+  titles,
+  isMobile,
+  onSelect,
+}: {
+  titles: NetflixTitle[];
+  isMobile: boolean;
+  onSelect: (title: NetflixTitle) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollByAmount = (direction: 1 | -1) => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollBy({ left: direction * element.clientWidth * 0.8, behavior: "smooth" });
+  };
+
+  return (
+    <div className="group/row relative mt-6">
+      <h2 className="mb-2 px-4 text-base font-bold text-white sm:px-6 sm:text-lg">My List</h2>
+      <div className="relative">
+        <div
+          ref={scrollRef}
+          className="no-scrollbar flex gap-2 overflow-x-auto scroll-smooth px-4 pb-3 sm:px-6"
+        >
+          {titles.map((title) => (
+            <button
+              type="button"
+              key={`${title.kind}-${title.id}`}
+              onClick={() => onSelect(title)}
+              className="group/title relative w-[112px] flex-shrink-0 overflow-hidden rounded-md text-left shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-[132px]"
+              aria-label={`Open ${title.title}`}
+            >
+              <motion.div
+                whileHover={isMobile ? undefined : { scale: 1.04 }}
+                transition={{ type: "tween", duration: 0.18 }}
+              >
+                <TitleImage
+                  src={posterUrl(title.poster)}
+                  alt={title.title}
+                  className="aspect-[2/3] w-full object-cover"
+                />
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-2 pb-2 pt-8 text-xs font-semibold text-white">
+                  {title.title}
+                </span>
+              </motion.div>
+            </button>
+          ))}
+        </div>
+        {!isMobile && titles.length > 5 && (
+          <>
+            <button
+              type="button"
+              onClick={() => scrollByAmount(-1)}
+              aria-label="Scroll My List left"
+              className="absolute left-0 top-0 z-20 flex h-full w-8 items-center justify-center bg-gradient-to-r from-black/70 to-transparent opacity-0 transition-opacity group-hover/row:opacity-100"
+            >
+              <Icon name="ChevronLeft" size={26} className="text-white" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollByAmount(1)}
+              aria-label="Scroll My List right"
+              className="absolute right-0 top-0 z-20 flex h-full w-8 items-center justify-center bg-gradient-to-l from-black/70 to-transparent opacity-0 transition-opacity group-hover/row:opacity-100"
+            >
+              <Icon name="ChevronRight" size={26} className="text-white" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DetailModal({
   title,
   isMobile,
@@ -415,10 +489,12 @@ export default function Netflix({
   isMobile = false,
   netflixMovies: movies = netflixMovies,
   netflixSeries: series = netflixSeries,
+  netflixMyList: myList = [],
 }: {
   isMobile?: boolean;
   netflixMovies?: NetflixTitle[];
   netflixSeries?: NetflixTitle[];
+  netflixMyList?: NetflixTitle[];
 }) {
   const [selected, setSelected] = useState<NetflixTitle | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -465,6 +541,9 @@ export default function Netflix({
           isMobile={isMobile}
           onSelect={setSelected}
         />
+        {myList.length > 0 && (
+          <MyListRow titles={myList} isMobile={isMobile} onSelect={setSelected} />
+        )}
         <div className="h-8" />
       </div>
 

@@ -161,6 +161,7 @@ function emptyData(type: CmsEntryType): FormState {
       sortOrder: 0,
       data: {
         kind: "movie",
+        myList: false,
         year: new Date().getFullYear(),
         maturity: "PG-13",
         duration: "",
@@ -353,6 +354,16 @@ export default function AdminPanel() {
     }
   }
 
+  function startNewNetflix(kind: NetflixTitleData["kind"]) {
+    const next = emptyData("netflix");
+    setSelectedId(null);
+    setForm({
+      ...next,
+      data: { ...(next.data as NetflixTitleData), kind },
+    });
+    setEditorOpen(true);
+  }
+
   function startNewNote(folder: string) {
     const next = emptyData("notes");
     setSelectedId(null);
@@ -502,6 +513,27 @@ export default function AdminPanel() {
           ...form,
           data: { ...(form.data as WifeData), name: form.title },
         };
+      } else if (form.type === "netflix") {
+        const netflixData = form.data as NetflixTitleData;
+        const currentEntry = selectedId
+          ? entries.find((entry) => entry.id === selectedId)
+          : undefined;
+        const currentKind = currentEntry
+          ? (currentEntry.data as NetflixTitleData).kind
+          : undefined;
+        const movedToAnotherList = currentKind && currentKind !== netflixData.kind;
+
+        if (!selectedId || movedToAnotherList) {
+          const lastOrder = entries
+            .filter(
+              (entry) =>
+                entry.type === "netflix" &&
+                entry.id !== selectedId &&
+                (entry.data as NetflixTitleData).kind === netflixData.kind
+            )
+            .reduce((highest, entry) => Math.max(highest, entry.sortOrder), -1);
+          payload = { ...form, sortOrder: lastOrder + 1 };
+        }
       }
 
       if (!payload.slug.trim()) {
@@ -773,6 +805,80 @@ export default function AdminPanel() {
     }
   }
 
+  async function reorderNetflix(
+    kind: NetflixTitleData["kind"],
+    orderedIds: string[]
+  ) {
+    const kindEntries = filteredEntries.filter(
+      (entry) => (entry.data as NetflixTitleData).kind === kind
+    );
+    if (
+      orderedIds.length !== kindEntries.length ||
+      new Set(orderedIds).size !== orderedIds.length
+    ) {
+      return;
+    }
+
+    const byId = new Map(kindEntries.map((entry) => [entry.id, entry]));
+    const reordered = orderedIds
+      .map((id) => byId.get(id))
+      .filter((entry): entry is CmsEntry => Boolean(entry))
+      .map((entry, index) => ({ ...entry, sortOrder: index }));
+    if (reordered.length !== kindEntries.length) return;
+
+    const optimistic = new Map(reordered.map((entry) => [entry.id, entry]));
+    setEntries((current) =>
+      current.map((entry) => optimistic.get(entry.id) ?? entry)
+    );
+    setBusy(true);
+    setMessage("Saving Netflix order...");
+    try {
+      await jsonFetch("/api/admin/content/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          operation: "update",
+          entries: reordered.map((entry) => ({
+            id: entry.id,
+            input: cmsInputFromEntry(entry),
+          })),
+        }),
+      });
+      await loadEntries("netflix");
+      setMessage("");
+      showSuccessToast(`${kind === "movie" ? "Movie" : "TV series"} order saved.`);
+    } catch (error) {
+      await loadEntries("netflix");
+      setMessage(error instanceof Error ? error.message : "Failed to save Netflix order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleNetflixMyList(entry: CmsEntry) {
+    const data = entry.data as NetflixTitleData;
+    const nextData = { ...data, myList: !data.myList };
+    setEntries((current) =>
+      current.map((item) =>
+        item.id === entry.id ? { ...item, data: nextData } : item
+      )
+    );
+    setBusy(true);
+    setMessage("");
+    try {
+      await jsonFetch(`/api/admin/content/${entry.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(cmsInputFromEntry(entry, { data: nextData })),
+      });
+      await loadEntries("netflix");
+      showSuccessToast(nextData.myList ? "Added to My List." : "Removed from My List.");
+    } catch (error) {
+      await loadEntries("netflix");
+      setMessage(error instanceof Error ? error.message : "Failed to update My List.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function updateGalleryEntry(
     entry: CmsEntry,
     data: GalleryImageData,
@@ -988,6 +1094,15 @@ export default function AdminPanel() {
                 setStatus={(status) => setCommon("status", status)}
                 setData={(updater) => setData<NoteData>(updater)}
               />
+            ) : activeType === "netflix" && !editorOpen ? (
+              <NetflixManager
+                entries={filteredEntries}
+                busy={busy}
+                onCreate={startNewNetflix}
+                onSelect={selectEntry}
+                onReorder={reorderNetflix}
+                onToggleMyList={toggleNetflixMyList}
+              />
             ) : editorOpen ? (
             <form onSubmit={save} className="mx-auto max-w-5xl space-y-5">
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
@@ -1030,10 +1145,12 @@ export default function AdminPanel() {
                   <span className="mb-1 block text-xs font-medium text-white/50">Slug</span>
                   <input value={form.slug} onChange={(event) => setCommon("slug", slugify(event.target.value))} className={inputClass()} />
                 </label>
-                <label>
-                  <span className="mb-1 block text-xs font-medium text-white/50">Sort</span>
-                  <input type="number" value={form.sortOrder} onChange={(event) => setCommon("sortOrder", Number(event.target.value))} className={inputClass()} />
-                </label>
+                {form.type !== "netflix" && (
+                  <label>
+                    <span className="mb-1 block text-xs font-medium text-white/50">Sort</span>
+                    <input type="number" value={form.sortOrder} onChange={(event) => setCommon("sortOrder", Number(event.target.value))} className={inputClass()} />
+                  </label>
+                )}
                 <label>
                   <span className="mb-1 block text-xs font-medium text-white/50">Status</span>
                   <select value={form.status} onChange={(event) => setCommon("status", event.target.value === "published" ? "published" : "draft")} className={inputClass()}>
@@ -1113,6 +1230,393 @@ export default function AdminPanel() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+function NetflixManager({
+  entries,
+  busy,
+  onCreate,
+  onSelect,
+  onReorder,
+  onToggleMyList,
+}: {
+  entries: CmsEntry[];
+  busy: boolean;
+  onCreate: (kind: NetflixTitleData["kind"]) => void;
+  onSelect: (entry: CmsEntry) => void;
+  onReorder: (kind: NetflixTitleData["kind"], orderedIds: string[]) => Promise<void>;
+  onToggleMyList: (entry: CmsEntry) => Promise<void>;
+}) {
+  const movieEntries = entries.filter(
+    (entry) => (entry.data as NetflixTitleData).kind === "movie"
+  );
+  const seriesEntries = entries.filter(
+    (entry) => (entry.data as NetflixTitleData).kind === "series"
+  );
+  const myListCount = entries.filter(
+    (entry) => Boolean((entry.data as NetflixTitleData).myList)
+  ).length;
+
+  return (
+    <div className="mx-auto max-w-[1500px] space-y-5">
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-white">Netflix lineup</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/45">
+            Drag published titles to choose each Top 10. Everything below the cutoff stays saved as a substitute.
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-2 text-xs text-white/45">
+          <span>{movieEntries.length} movies</span>
+          <span aria-hidden className="text-white/20">•</span>
+          <span>{seriesEntries.length} TV series</span>
+          <span aria-hidden className="text-white/20">•</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-300/10 px-2.5 py-1 text-sky-200">
+            <Icon name="Bookmark" size={12} />
+            {myListCount} in My List
+          </span>
+        </div>
+      </div>
+
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <NetflixRankingBoard
+          kind="movie"
+          entries={movieEntries}
+          busy={busy}
+          onCreate={onCreate}
+          onSelect={onSelect}
+          onReorder={onReorder}
+          onToggleMyList={onToggleMyList}
+        />
+        <NetflixRankingBoard
+          kind="series"
+          entries={seriesEntries}
+          busy={busy}
+          onCreate={onCreate}
+          onSelect={onSelect}
+          onReorder={onReorder}
+          onToggleMyList={onToggleMyList}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NetflixRankingBoard({
+  kind,
+  entries,
+  busy,
+  onCreate,
+  onSelect,
+  onReorder,
+  onToggleMyList,
+}: {
+  kind: NetflixTitleData["kind"];
+  entries: CmsEntry[];
+  busy: boolean;
+  onCreate: (kind: NetflixTitleData["kind"]) => void;
+  onSelect: (entry: CmsEntry) => void;
+  onReorder: (kind: NetflixTitleData["kind"], orderedIds: string[]) => Promise<void>;
+  onToggleMyList: (entry: CmsEntry) => Promise<void>;
+}) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const ordered = [...entries].sort(
+    (left, right) =>
+      left.sortOrder - right.sortOrder ||
+      left.updatedAt.localeCompare(right.updatedAt)
+  );
+  const published = ordered.filter((entry) => entry.status === "published");
+  const lineup = published.slice(0, 10);
+  const substitutes = published.slice(10);
+  const drafts = ordered.filter((entry) => entry.status === "draft");
+  const label = kind === "movie" ? "Movies" : "TV Series";
+  const singularLabel = kind === "movie" ? "movie" : "TV series";
+
+  function persistGroups(nextPublished: CmsEntry[], nextDrafts = drafts) {
+    void onReorder(kind, [...nextPublished, ...nextDrafts].map((entry) => entry.id));
+  }
+
+  function moveEntry(entry: CmsEntry, direction: -1 | 1) {
+    const group = entry.status === "published" ? published : drafts;
+    const index = group.findIndex((item) => item.id === entry.id);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= group.length) return;
+    const reordered = [...group];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    if (entry.status === "published") {
+      persistGroups(reordered);
+    } else {
+      persistGroups(published, reordered);
+    }
+  }
+
+  function dropEntry(target: CmsEntry) {
+    if (!draggingId || draggingId === target.id) return;
+    const source = ordered.find((entry) => entry.id === draggingId);
+    if (!source || source.status !== target.status) return;
+    const group = source.status === "published" ? published : drafts;
+    const fromIndex = group.findIndex((entry) => entry.id === source.id);
+    const toIndex = group.findIndex((entry) => entry.id === target.id);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const reordered = [...group];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    if (source.status === "published") {
+      persistGroups(reordered);
+    } else {
+      persistGroups(published, reordered);
+    }
+  }
+
+  function renderRows(
+    groupEntries: CmsEntry[],
+    zone: "lineup" | "substitute" | "draft",
+    positionOffset = 0
+  ) {
+    const movementGroup = zone === "draft" ? drafts : published;
+    return groupEntries.map((entry, index) => {
+      const data = entry.data as NetflixTitleData;
+      const movementIndex = movementGroup.findIndex((item) => item.id === entry.id);
+      const position = zone === "draft" ? null : positionOffset + index + 1;
+      return (
+        <tr
+          key={entry.id}
+          onDragOver={(event) => {
+            if (!draggingId) return;
+            event.preventDefault();
+            setDropTargetId(entry.id);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            dropEntry(entry);
+            setDraggingId(null);
+            setDropTargetId(null);
+          }}
+          onClick={() => onSelect(entry)}
+          className={`group cursor-pointer border-t border-white/[0.07] transition-colors ${
+            draggingId === entry.id
+              ? "opacity-40"
+              : dropTargetId === entry.id
+                ? "bg-sky-400/10"
+                : "hover:bg-white/[0.045]"
+          }`}
+        >
+          <td className="w-12 px-3 py-2.5 align-middle">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                draggable={!busy}
+                disabled={busy}
+                aria-label={`Drag ${entry.title} to change its position`}
+                onClick={(event) => event.stopPropagation()}
+                onDragStart={(event) => {
+                  setDraggingId(entry.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", entry.id);
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setDropTargetId(null);
+                }}
+                className="cursor-grab rounded p-1 text-white/30 hover:bg-white/10 hover:text-white/70 active:cursor-grabbing disabled:cursor-default disabled:opacity-30"
+              >
+                <Icon name="GripVertical" size={15} />
+              </button>
+              <span className={`w-7 text-right font-mono text-xs font-semibold ${
+                zone === "lineup"
+                  ? "text-emerald-200"
+                  : zone === "substitute"
+                    ? "text-amber-200"
+                    : "text-white/30"
+              }`}>
+                {position ? `#${position}` : "D"}
+              </span>
+            </div>
+          </td>
+          <td className="min-w-0 px-2 py-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              {data.poster?.startsWith("/") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`https://image.tmdb.org/t/p/w92${data.poster}`}
+                  alt=""
+                  draggable={false}
+                  className="h-11 w-8 shrink-0 rounded object-cover"
+                />
+              ) : (
+                <div className="flex h-11 w-8 shrink-0 items-center justify-center rounded bg-white/[0.06] text-white/20">
+                  <Icon name="ImageOff" size={13} />
+                </div>
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-white">
+                  {entry.title || "Untitled"}
+                </span>
+                <span className="mt-0.5 block text-xs text-white/35">
+                  {data.year || "Year unset"} · {data.duration || "Duration unset"}
+                </span>
+              </span>
+            </div>
+          </td>
+          <td className="whitespace-nowrap px-2 py-2.5">
+            <button
+              type="button"
+              disabled={busy}
+              aria-pressed={Boolean(data.myList)}
+              onClick={(event) => {
+                event.stopPropagation();
+                void onToggleMyList(entry);
+              }}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition ${
+                data.myList
+                  ? "bg-sky-300/12 text-sky-200 hover:bg-sky-300/20"
+                  : "bg-white/[0.06] text-white/35 hover:bg-white/10 hover:text-white/60"
+              } disabled:opacity-40`}
+            >
+              <Icon name={data.myList ? "BookmarkCheck" : "BookmarkPlus"} size={12} />
+              My List
+            </button>
+          </td>
+          <td className="w-28 px-3 py-2.5">
+            <div className="flex justify-end gap-0.5">
+              <button
+                type="button"
+                disabled={busy || movementIndex === 0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveEntry(entry, -1);
+                }}
+                aria-label={`Move ${entry.title} up`}
+                className="rounded p-1.5 text-white/45 hover:bg-white/10 hover:text-white disabled:opacity-20"
+              >
+                <Icon name="ArrowUp" size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={busy || movementIndex === movementGroup.length - 1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveEntry(entry, 1);
+                }}
+                aria-label={`Move ${entry.title} down`}
+                className="rounded p-1.5 text-white/45 hover:bg-white/10 hover:text-white disabled:opacity-20"
+              >
+                <Icon name="ArrowDown" size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(entry);
+                }}
+                aria-label={`Edit ${entry.title}`}
+                className="rounded p-1.5 text-white/45 hover:bg-white/10 hover:text-white disabled:opacity-20"
+              >
+                <Icon name="Pencil" size={14} />
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    });
+  }
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3.5">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-md ${
+          kind === "movie" ? "bg-rose-300/10 text-rose-200" : "bg-violet-300/10 text-violet-200"
+        }`}>
+          <Icon name={kind === "movie" ? "Clapperboard" : "Tv"} size={16} />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold text-white">{label}</h2>
+          <p className="text-xs text-white/35">
+            {published.length} published, {drafts.length} draft{drafts.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onCreate(kind)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        >
+          <Icon name="Plus" size={14} />
+          Add {singularLabel}
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] border-collapse text-left">
+          <thead className="bg-white/[0.025] text-[10px] font-semibold uppercase tracking-wider text-white/30">
+            <tr>
+              <th className="px-3 py-2.5">Rank</th>
+              <th className="px-2 py-2.5">Title</th>
+              <th className="px-2 py-2.5">Tag</th>
+              <th className="px-3 py-2.5 text-right">Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-emerald-300/15 bg-emerald-300/[0.045]">
+              <th colSpan={4} className="px-3 py-2 text-left">
+                <span className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-100">
+                  <Icon name="MonitorPlay" size={13} />
+                  Starting 10
+                  <span className="font-normal text-emerald-100/50">
+                    {lineup.length}/10 shown
+                  </span>
+                </span>
+              </th>
+            </tr>
+            {renderRows(lineup, "lineup")}
+            {lineup.length < 10 && (
+              <tr className="border-t border-dashed border-white/10">
+                <td colSpan={4} className="px-4 py-3 text-center text-xs text-white/30">
+                  {10 - lineup.length} open slot{10 - lineup.length === 1 ? "" : "s"} in the public Top 10
+                </td>
+              </tr>
+            )}
+            <tr className="border-t border-amber-300/15 bg-amber-300/[0.035]">
+              <th colSpan={4} className="px-3 py-2 text-left">
+                <span className="inline-flex items-center gap-2 text-xs font-semibold text-amber-100">
+                  <Icon name="UsersRound" size={13} />
+                  Substitutes
+                  <span className="font-normal text-amber-100/50">
+                    {substitutes.length} saved, not shown in Top 10
+                  </span>
+                </span>
+              </th>
+            </tr>
+            {substitutes.length ? (
+              renderRows(substitutes, "substitute", 10)
+            ) : (
+              <tr className="border-t border-white/[0.07]">
+                <td colSpan={4} className="px-4 py-3 text-center text-xs text-white/25">
+                  No substitutes yet
+                </td>
+              </tr>
+            )}
+            {drafts.length > 0 && (
+              <>
+                <tr className="border-t border-white/10 bg-white/[0.025]">
+                  <th colSpan={4} className="px-3 py-2 text-left">
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/55">
+                      <Icon name="FilePenLine" size={13} />
+                      Drafts
+                      <span className="font-normal text-white/30">never shown publicly</span>
+                    </span>
+                  </th>
+                </tr>
+                {renderRows(drafts, "draft")}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -1570,8 +2074,7 @@ function NetflixForm({ data, setData, setTitle }: {
         <div>
           <h2 className="text-sm font-semibold text-white">Title details</h2>
           <p className="mt-1 text-xs text-white/40">
-            Search TMDB to auto-fill, or edit any field manually. Rank comes from the Sort Order above,
-            among published entries of the same kind (top 10 are shown).
+            Search TMDB to auto-fill, or edit any field manually. Use the Netflix lineup to set the public order.
           </p>
         </div>
         <TmdbSearchField onPick={handlePick} />
@@ -1626,6 +2129,25 @@ function NetflixForm({ data, setData, setTitle }: {
               onChange={(event) => setData((current) => ({ ...current, match: Number(event.target.value) }))}
               className={inputClass()}
             />
+          </label>
+          <label className="flex min-h-[62px] cursor-pointer items-center gap-3 self-end rounded-md border border-white/10 bg-white/[0.035] px-3 py-2.5 transition hover:bg-white/[0.055]">
+            <input
+              type="checkbox"
+              checked={Boolean(data.myList)}
+              onChange={(event) =>
+                setData((current) => ({ ...current, myList: event.target.checked }))
+              }
+              className="h-4 w-4 shrink-0 accent-sky-500"
+            />
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-white">
+                <Icon name="Bookmark" size={14} className="text-sky-300" />
+                My List
+              </span>
+              <span className="mt-0.5 block text-xs text-white/40">
+                Show this title in the My List row.
+              </span>
+            </span>
           </label>
         </div>
         <label>

@@ -103,6 +103,7 @@ export interface WifeData {
 
 export interface NetflixTitleData {
   kind: "movie" | "series";
+  myList: boolean;
   year: number;
   maturity: string;
   duration: string;

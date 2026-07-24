@@ -13,6 +13,7 @@ export interface NetflixTitle {
   id: string;
   rank: number;
   kind: "movie" | "series";
+  myList?: boolean;
   title: string;
   year: number;
   maturity: string;
@@ -361,21 +362,26 @@ export const netflixSeries: NetflixTitle[] = [
 // falling back per-kind to the static arrays above when a kind has no entries.
 // Entries arrive already ordered by sort_order; rank is derived from position.
 export function buildNetflixLists(entries: CmsEntry<NetflixTitleData>[]) {
-  const forKind = (kind: "movie" | "series", fallback: NetflixTitle[]): NetflixTitle[] => {
-    const list = entries
+  const allForKind = (kind: "movie" | "series"): NetflixTitle[] =>
+    entries
       .filter((entry) => entry.data.kind === kind)
-      .slice(0, 10)
       .map((entry, index) => ({
         id: entry.slug,
         rank: index + 1,
         title: entry.title,
         ...entry.data,
       }));
-    return list.length ? list : fallback;
+
+  const allMovies = allForKind("movie");
+  const allSeries = allForKind("series");
+  const forKind = (list: NetflixTitle[], fallback: NetflixTitle[]) => {
+    const visible = list.slice(0, 10);
+    return visible.length ? visible : fallback;
   };
 
   return {
-    movies: forKind("movie", netflixMovies),
-    series: forKind("series", netflixSeries),
+    movies: forKind(allMovies, netflixMovies),
+    series: forKind(allSeries, netflixSeries),
+    myList: [...allMovies, ...allSeries].filter((title) => title.myList),
   };
 }
