@@ -26,7 +26,6 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
     mail: "/dock/email.png",
     music: "/dock/music.png",
     terminal: "/dock/terminal.png",
-    netflix: "/dock/netflix.svg",
     linkedin: "/dock/linkedin.png",
     twitter: "/dock/X.png",
     instagram: "/dock/instagram.png",
@@ -35,6 +34,7 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
   if (id === "photos") return theme === "dark" ? "/dock/photos-dark.png" : "/dock/photos-light.png";
   if (id === "github") return theme === "dark" ? "/dock/github-dark.png" : "/dock/github-light.png";
   if (id === "lumona") return theme === "dark" ? "/dock/lumona-dark.png" : "/dock/lumona-light.png";
+  if (id === "netflix") return theme === "dark" ? "/dock/netflix-dark.png" : "/dock/netflix-light.png";
   if (id === "invitation") return "/dock/digital-invitation.png";
   if (id === "apps") return "/dock/spotlight.png";
   return map[id] || null;

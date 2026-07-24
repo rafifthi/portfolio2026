@@ -47,11 +47,10 @@ const staticProfileItems: FinderItem[] = [
 const staticWorkItems: FinderItem[] = [
   {
     id: "netflix",
-    name: "Netflix Clone",
+    name: "Netflix",
     kind: "App showcase",
     icon: "Play",
     color: "#E50914",
-    image: "/dock/netflix.svg",
     target: { type: "app", appId: "netflix" },
   },
 ];
@@ -119,6 +118,7 @@ function getFinderIconSrc(id: string, theme: "dark" | "light") {
     instagram: "/dock/instagram.png",
   };
   if (id === "github") return theme === "dark" ? "/dock/github-dark.png" : "/dock/github-light.png";
+  if (id === "netflix") return theme === "dark" ? "/dock/netflix-dark.png" : "/dock/netflix-light.png";
   return icons[id] || null;
 }
 
