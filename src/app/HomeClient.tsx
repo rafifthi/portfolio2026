@@ -14,6 +14,7 @@ import Music from "@/components/apps/Music";
 import Terminal from "@/components/apps/Terminal";
 import LumonaERP from "@/components/apps/LumonaERP";
 import DigitalInvitation from "@/components/apps/DigitalInvitation";
+import Netflix from "@/components/apps/Netflix";
 import AppLauncher from "@/components/apps/AppLauncher";
 import Readme from "@/components/apps/Readme";
 import AboutRafif from "@/components/apps/AboutRafif";
@@ -66,6 +67,7 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   terminal: { title: "Terminal", icon: "Terminal", color: "#1f2937", width: 600, height: 420, component: Terminal },
   lumona: { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 520, component: LumonaERP },
   invitation: { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 640, height: 520, component: DigitalInvitation },
+  netflix: { title: "Netflix", icon: "Play", color: "#E50914", width: 960, height: 600, component: Netflix },
   apps: { title: "Spotlight", icon: "/dock/spotlight.png", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
   settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
@@ -78,6 +80,7 @@ const DOCK_ITEMS = [
   { id: "photos", name: "Photos", icon: "Image", color: "#a78bfa" },
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937" },
+  { id: "netflix", name: "Netflix", icon: "Play", color: "#E50914" },
   { id: "separator", name: "", icon: "", color: "", isSeparator: true },
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];

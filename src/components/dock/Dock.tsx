@@ -26,6 +26,7 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
     mail: "/dock/email.png",
     music: "/dock/music.png",
     terminal: "/dock/terminal.png",
+    netflix: "/dock/netflix.svg",
     linkedin: "/dock/linkedin.png",
     twitter: "/dock/X.png",
     instagram: "/dock/instagram.png",
