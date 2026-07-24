@@ -44,6 +44,18 @@ const staticProfileItems: FinderItem[] = [
   },
 ];
 
+const staticWorkItems: FinderItem[] = [
+  {
+    id: "netflix",
+    name: "Netflix Clone",
+    kind: "App showcase",
+    icon: "Play",
+    color: "#E50914",
+    image: "/dock/netflix.svg",
+    target: { type: "app", appId: "netflix" },
+  },
+];
+
 const connectItems: FinderItem[] = [
   {
     id: "email",
@@ -185,13 +197,16 @@ export default function Finder({
 
   const sections = useMemo<Record<SectionKey, FinderItem[]>>(
     () => ({
-      Work: finderItems
-        .filter(
-          (item) =>
-            item.appId.endsWith("-case") ||
-            item.appId.startsWith("cms-portfolio:")
-        )
-        .map(toWorkItem),
+      Work: [
+        ...finderItems
+          .filter(
+            (item) =>
+              item.appId.endsWith("-case") ||
+              item.appId.startsWith("cms-portfolio:")
+          )
+          .map(toWorkItem),
+        ...staticWorkItems,
+      ],
       Profile: profileItems,
       Connect: connectItems,
     }),

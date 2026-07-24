@@ -1,6 +1,6 @@
 import HomeClient from "./HomeClient";
 import { connection } from "next/server";
-import type { AboutData, CmsEntry, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import type { AboutData, CmsEntry, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
 import { listPublishedCmsEntries } from "@/lib/cms-cache";
 
 async function getPortfolioEntries(): Promise<CmsEntry<PortfolioEntryData>[]> {
@@ -25,6 +25,17 @@ async function getNoteEntries(): Promise<CmsEntry<NoteData>[]> {
   }
 }
 
+async function getNetflixEntries(): Promise<CmsEntry<NetflixTitleData>[]> {
+  if (!process.env.DATABASE_URL) return [];
+
+  try {
+    return (await listPublishedCmsEntries("netflix")) as CmsEntry<NetflixTitleData>[];
+  } catch {
+    // The Netflix app has static fallback content when the CMS is unavailable.
+    return [];
+  }
+}
+
 async function getProfileEntry<TData>(type: "about" | "wife"): Promise<CmsEntry<TData> | null> {
   if (!process.env.DATABASE_URL) return null;
 
@@ -40,11 +51,12 @@ export default async function Home() {
   // Otherwise a build without runtime env can permanently prerender an empty desktop.
   await connection();
 
-  const [portfolioEntries, noteEntries, aboutEntry, wifeEntry] = await Promise.all([
+  const [portfolioEntries, noteEntries, aboutEntry, wifeEntry, netflixEntries] = await Promise.all([
     getPortfolioEntries(),
     getNoteEntries(),
     getProfileEntry<AboutData>("about"),
     getProfileEntry<WifeData>("wife"),
+    getNetflixEntries(),
   ]);
 
   return (
@@ -53,6 +65,7 @@ export default async function Home() {
       initialNoteEntries={noteEntries}
       initialAboutEntry={aboutEntry}
       initialWifeEntry={wifeEntry}
+      initialNetflixEntries={netflixEntries}
     />
   );
 }

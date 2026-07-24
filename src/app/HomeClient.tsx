@@ -14,6 +14,7 @@ import Music from "@/components/apps/Music";
 import Terminal from "@/components/apps/Terminal";
 import LumonaERP from "@/components/apps/LumonaERP";
 import DigitalInvitation from "@/components/apps/DigitalInvitation";
+import Netflix from "@/components/apps/Netflix";
 import AppLauncher from "@/components/apps/AppLauncher";
 import Readme from "@/components/apps/Readme";
 import AboutRafif from "@/components/apps/AboutRafif";
@@ -27,7 +28,8 @@ import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { DesktopItem, WindowState } from "@/lib/types";
-import { AboutData, browserImageUrl, CmsEntry, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import { AboutData, browserImageUrl, CmsEntry, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import { buildNetflixLists, NetflixTitle } from "@/lib/netflix-data";
 import { fallbackAboutData, fallbackWifeData } from "@/lib/profile-content";
 
 interface AppComponentProps {
@@ -38,6 +40,8 @@ interface AppComponentProps {
   initialNoteEntries?: CmsEntry<NoteData>[];
   aboutData?: AboutData;
   wifeData?: WifeData;
+  netflixMovies?: NetflixTitle[];
+  netflixSeries?: NetflixTitle[];
   isMaximized?: boolean;
   isMobile?: boolean;
   isTablet?: boolean;
@@ -66,6 +70,7 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   terminal: { title: "Terminal", icon: "Terminal", color: "#1f2937", width: 600, height: 420, component: Terminal },
   lumona: { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 520, component: LumonaERP },
   invitation: { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 640, height: 520, component: DigitalInvitation },
+  netflix: { title: "Netflix", icon: "Play", color: "#E50914", width: 960, height: 600, component: Netflix },
   apps: { title: "Spotlight", icon: "/dock/spotlight.png", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
   settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
@@ -78,6 +83,7 @@ const DOCK_ITEMS = [
   { id: "photos", name: "Photos", icon: "Image", color: "#a78bfa" },
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937" },
+  { id: "netflix", name: "Netflix", icon: "Play", color: "#E50914" },
   { id: "separator", name: "", icon: "", color: "", isSeparator: true },
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
@@ -107,6 +113,7 @@ interface HomeClientProps {
   initialNoteEntries: CmsEntry<NoteData>[];
   initialAboutEntry: CmsEntry<AboutData> | null;
   initialWifeEntry: CmsEntry<WifeData> | null;
+  initialNetflixEntries: CmsEntry<NetflixTitleData>[];
 }
 
 export default function HomeClient({
@@ -114,6 +121,7 @@ export default function HomeClient({
   initialNoteEntries,
   initialAboutEntry,
   initialWifeEntry,
+  initialNetflixEntries,
 }: HomeClientProps) {
   const { theme, toggle, wallpaper } = useTheme();
   const [windows, setWindows] = useState<WindowState[]>([]);
@@ -134,6 +142,7 @@ export default function HomeClient({
     ...initialWifeEntry?.data,
     desktop: { ...fallbackWifeData.desktop, ...initialWifeEntry?.data.desktop },
   }), [initialWifeEntry]);
+  const netflixLists = useMemo(() => buildNetflixLists(initialNetflixEntries), [initialNetflixEntries]);
   // "pending" on both server and first client render (no hydration mismatch);
   // resolved to "booting" (first visit) or "done" (returning) in an effect.
   const [bootStatus, setBootStatus] = useState<"pending" | "booting" | "done">("pending");
@@ -672,6 +681,8 @@ export default function HomeClient({
                 initialNoteEntries={initialNoteEntries}
                 aboutData={aboutData}
                 wifeData={wifeData}
+                netflixMovies={netflixLists.movies}
+                netflixSeries={netflixLists.series}
                 isMaximized={win.isMaximized}
                 isMobile={isMobile}
                 isTablet={isTablet}

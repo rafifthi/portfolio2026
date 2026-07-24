@@ -68,6 +68,15 @@ const migrations = [
        ) ON CONFLICT (type, slug) DO NOTHING`,
     ],
   },
+  {
+    version: 4,
+    name: "add-netflix-entry-type",
+    statements: [
+      `ALTER TABLE cms_entries DROP CONSTRAINT IF EXISTS cms_entries_type_check`,
+      `ALTER TABLE cms_entries ADD CONSTRAINT cms_entries_type_check
+       CHECK (type IN ('gallery', 'notes', 'portfolio', 'about', 'wife', 'netflix'))`,
+    ],
+  },
 ];
 
 function loadEnvFile(name) {
