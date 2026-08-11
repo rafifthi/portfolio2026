@@ -18,6 +18,7 @@ const apps = [
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55", img: "/dock/music.png" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937", img: "/dock/terminal.png" },
   { id: "netflix", name: "Netflix", icon: "Play", color: "#E50914", img: "/dock/netflix.svg" },
+  { id: "odyssey", name: "The Odyssey", icon: "Sailboat", color: "#c7603f", img: null },
   { id: "github", name: "GitHub", icon: "GitBranch", color: "#333", img: null },
   { id: "linkedin", name: "LinkedIn", icon: "Link", color: "#0077b5", img: null },
   { id: "twitter", name: "Twitter", icon: "MessageCircle", color: "#1da1f2", img: null },

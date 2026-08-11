@@ -110,6 +110,8 @@ function DockItemComponent({
   return (
     <motion.button
       id={`dock-${item.id}`}
+      type="button"
+      aria-label={item.name}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}

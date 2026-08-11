@@ -15,6 +15,7 @@ import Terminal from "@/components/apps/Terminal";
 import LumonaERP from "@/components/apps/LumonaERP";
 import DigitalInvitation from "@/components/apps/DigitalInvitation";
 import Netflix from "@/components/apps/Netflix";
+import Odyssey from "@/components/apps/Odyssey";
 import AppLauncher from "@/components/apps/AppLauncher";
 import Readme from "@/components/apps/Readme";
 import AboutRafif from "@/components/apps/AboutRafif";
@@ -71,6 +72,7 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   lumona: { title: "Lumona ERP", icon: "Box", color: "#3b82f6", width: 720, height: 520, component: LumonaERP },
   invitation: { title: "Digital Invitation", icon: "Mail", color: "#d4a574", width: 640, height: 520, component: DigitalInvitation },
   netflix: { title: "Netflix", icon: "Play", color: "#E50914", width: 960, height: 600, component: Netflix },
+  odyssey: { title: "The Odyssey", icon: "Sailboat", color: "#c7603f", width: 960, height: 640, component: Odyssey },
   apps: { title: "Spotlight", icon: "/dock/spotlight.png", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
   settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
@@ -84,6 +86,7 @@ const DOCK_ITEMS = [
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937" },
   { id: "netflix", name: "Netflix", icon: "Play", color: "#E50914" },
+  { id: "odyssey", name: "The Odyssey", icon: "Sailboat", color: "#c7603f" },
   { id: "separator", name: "", icon: "", color: "", isSeparator: true },
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
@@ -402,6 +405,12 @@ export default function HomeClient({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (
+          e.defaultPrevented ||
+          (e.target instanceof Element && e.target.closest("[data-odyssey-game]"))
+        ) {
+          return;
+        }
         setWindows((prev) => {
           if (prev.length === 0) return prev;
           const topmost = prev.reduce((a, b) => (a.zIndex > b.zIndex ? a : b));
