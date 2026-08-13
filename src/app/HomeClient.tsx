@@ -299,12 +299,21 @@ export default function HomeClient({
 
   const focusWindow = useCallback(
     (id: string) => {
+      // Skip the state update when the window is already frontmost. focusWindow
+      // fires on every pointerdown inside a window/sheet; on touch devices an
+      // unnecessary re-render (and z-index churn) here cancels the native scroll
+      // gesture a touch-drag is starting — so scrolling silently fails on phones
+      // while mouse-wheel scrolling (which fires no pointerdown) still works.
+      const target = windows.find((w) => w.id === id);
+      if (!target) return;
+      const maxZ = windows.reduce((max, w) => Math.max(max, w.zIndex), 0);
+      if (target.zIndex === maxZ && !target.isMinimized) return;
       setWindows((prev) =>
         prev.map((w) => (w.id === id ? { ...w, zIndex: nextZIndex, isMinimized: false } : w))
       );
       setNextZIndex((z) => z + 1);
     },
-    [nextZIndex]
+    [windows, nextZIndex]
   );
 
   const openApp = useCallback(
@@ -644,6 +653,10 @@ export default function HomeClient({
         {windows.map((win) => {
           const config = getAppConfig(win.appId);
           if (!config || win.isMinimized) return null;
+          // On mobile, only the frontmost app is shown as a sheet (iOS-style
+          // single-app view). Others stay in state (still "open" in the dock)
+          // but don't stack up visually; closing the top reveals the previous.
+          if (isMobile && topWindow && win.id !== topWindow.id) return null;
           const AppComponent = config.component;
 
           return (

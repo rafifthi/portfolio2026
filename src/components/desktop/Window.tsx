@@ -195,7 +195,10 @@ export default function Window({
             className={`${
               mobilePresentation === "terminal" ? "flex-none" : "flex-1"
             } min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain relative`}
-            style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
+            // touch-action: auto (not pan-y) so nested horizontal scrollers
+            // (carousels in Music/Netflix) and pinch-zoom still work on touch.
+            // Drag-to-dismiss is gated to the header, so it doesn't conflict.
+            style={{ touchAction: "auto", WebkitOverflowScrolling: "touch" }}
           >
             {children}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useDragControls } from "framer-motion";
 import { useRef, useState } from "react";
 
 interface DesktopIconProps {
@@ -18,60 +18,40 @@ interface DesktopIconProps {
 const DESKTOP_ICON_RADIUS = 14;
 
 export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false }: DesktopIconProps) {
-  const ptr = useRef({ downX: 0, downY: 0, dragged: false });
   const [hovered, setHovered] = useState(false);
+  const dragControls = useDragControls();
+  const dragged = useRef(false);
+  // Document glyphs (readme/cv, etc.) look best fully visible; photos fill the
+  // tile. Detect vector file-icons so we don't crop them.
+  const isGlyph = /\.svg($|\?)/i.test(image);
+
+  const handleActivate = () => {
+    // Suppress the click that fires right after a drag; otherwise open the app.
+    // The flag is cleared in onDragEnd (below), not here, so an icon that was
+    // dragged without a trailing click still opens on its next click.
+    if (dragged.current) return;
+    onOpen();
+  };
 
   return (
-    <motion.button
-      type="button"
+    <motion.div
+      // Drag is driven by dragControls started from the inner handle's
+      // pointerdown (the same pattern the Window title bar uses, which is the
+      // configuration that actually engages framer's drag here). A plain
+      // `drag` prop or self-started controls did not move the icon.
       id={id}
       drag={!disableDrag}
+      dragListener={false}
+      dragControls={dragControls}
       dragMomentum={false}
+      whileDrag={{ zIndex: 50 }}
       initial={false}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        ptr.current.downX = e.clientX;
-        ptr.current.downY = e.clientY;
-        ptr.current.dragged = false;
+      onDragStart={() => { dragged.current = true; }}
+      onDragEnd={() => {
+        // Clear after the click that may follow this drag has been handled.
+        setTimeout(() => { dragged.current = false; }, 0);
       }}
-      onDragStart={() => { ptr.current.dragged = true; }}
-      onPointerUp={(e) => {
-        // Mobile icons use the native click path below. On iOS, pointer-up can
-        // be cancelled by the browser's touch gesture handling even for a tap.
-        if (disableDrag) {
-          ptr.current.dragged = false;
-          return;
-        }
-
-        // Robust click detection: open if the pointer barely moved between
-        // down and up (a tap), regardless of how long the press took.
-        if (ptr.current.dragged) {
-          ptr.current.dragged = false;
-          return;
-        }
-        const dx = e.clientX - ptr.current.downX;
-        const dy = e.clientY - ptr.current.downY;
-        const moved = Math.hypot(dx, dy);
-        if (moved < 6) {
-          onOpen();
-        }
-        ptr.current.dragged = false;
-      }}
-      onPointerCancel={() => {
-        ptr.current.dragged = false;
-      }}
-      aria-label={`Open ${label}`}
-      onClick={(e) => {
-        e.stopPropagation();
-        // Pointer clicks are handled above on draggable desktop icons. Native
-        // click is the reliable path for touch and keyboard activation.
-        if (disableDrag || e.detail === 0) {
-          onOpen();
-        }
-      }}
-      className="absolute flex appearance-none flex-col items-center gap-0 border-0 bg-transparent p-0 text-inherit cursor-pointer group select-none"
+      className="absolute flex flex-col items-center gap-0 text-inherit group select-none"
       style={{
         left: `${x}%`,
         top: `${y}%`,
@@ -79,9 +59,22 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
         touchAction: disableDrag ? "manipulation" : "none",
       }}
     >
-      {/* Hover glass wrapper — wraps both thumbnail + label */}
+      {/* Hover glass wrapper — also the click target + drag handle */}
       <div
-        className="flex flex-col items-center gap-0.5 rounded-2xl p-1.5 transition-all duration-150"
+        role="button"
+        tabIndex={0}
+        aria-label={`Open ${label}`}
+        onPointerDown={(e) => { if (!disableDrag) dragControls.start(e); }}
+        onClick={handleActivate}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        className="flex flex-col items-center gap-0.5 rounded-2xl p-1.5 transition-all duration-150 cursor-pointer"
         style={{
           background: hovered
             ? "rgba(255, 255, 255, 0.12)"
@@ -93,9 +86,10 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
             : "none",
         }}
       >
-        {/* Thumbnail */}
+        {/* Thumbnail — on mobile every icon shares one uniform square tile so
+            sizes stay consistent regardless of image aspect ratio or label. */}
         <div
-          className={`${compact ? "h-20" : ""} w-full overflow-hidden shadow-lg transition-all duration-150 flex items-center justify-center`}
+          className={`${compact ? "h-16 w-16" : "w-full"} overflow-hidden shadow-lg transition-all duration-150 flex items-center justify-center`}
           style={{
             borderRadius: DESKTOP_ICON_RADIUS,
             boxShadow: hovered
@@ -106,7 +100,11 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
           <img
             src={image}
             alt={label}
-            className={compact ? "max-h-full max-w-full h-auto w-auto object-contain" : "w-full h-auto object-contain"}
+            className={
+              compact
+                ? `h-full w-full ${isGlyph ? "object-contain p-0.5" : "object-cover"}`
+                : "w-full h-auto object-contain"
+            }
             style={{ borderRadius: DESKTOP_ICON_RADIUS }}
             loading="eager"
             fetchPriority="high"
@@ -116,7 +114,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
 
         {/* Label */}
         <span
-          className="text-[11px] font-medium text-center px-3 py-0.5 rounded-md leading-tight max-w-full truncate transition-all duration-150"
+          className={`${compact ? "text-[12px] mt-1" : "text-[11px]"} font-medium text-center px-3 py-0.5 rounded-md leading-tight max-w-full truncate transition-all duration-150`}
           style={{
             backgroundColor: hovered
               ? "rgba(59, 130, 246, 0.85)"
@@ -128,6 +126,6 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
           {label}
         </span>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }

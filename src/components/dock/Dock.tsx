@@ -41,16 +41,19 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
 }
 
 function DockIcon({ item, isMobile, theme }: { item: DockItemDef; isMobile: boolean; theme: "dark" | "light" }) {
-  const size = isMobile ? 48 : 52;
   const src = getDockIconSrc(item.id, theme);
+  // On mobile the icon fills its flex-sized slot (capped at 52px) so the whole
+  // dock always fits the viewport width without horizontal scrolling.
+  const sizeCls = isMobile ? "w-full aspect-square max-w-[52px]" : "";
+  const sizeStyle = isMobile ? undefined : { width: 52, height: 52 };
 
   if (src) {
     return (
       <img
         src={src}
         alt={item.name}
-        className="rounded-xl shadow-md object-cover"
-        style={{ width: size, height: size }}
+        className={`rounded-xl shadow-md object-cover ${sizeCls}`}
+        style={sizeStyle}
         draggable={false}
       />
     );
@@ -65,8 +68,8 @@ function DockIcon({ item, isMobile, theme }: { item: DockItemDef; isMobile: bool
 
   return (
     <div
-      className="rounded-xl flex items-center justify-center shadow-md"
-      style={{ width: size, height: size, background: fallbackColors[item.id] || item.color || "#6b7280" }}
+      className={`rounded-xl flex items-center justify-center shadow-md ${sizeCls}`}
+      style={{ ...sizeStyle, background: fallbackColors[item.id] || item.color || "#6b7280" }}
     >
       <Icon name={item.icon || "Box"} size={22} className="text-white" />
     </div>
@@ -113,9 +116,9 @@ function DockItemComponent({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
-      className={`relative flex items-center justify-center flex-shrink-0 ${
-        bouncing && !isMobile ? "dock-bounce" : ""
-      }`}
+      className={`relative flex items-center justify-center ${
+        isMobile ? "flex-1 min-w-0 max-w-[52px]" : "flex-shrink-0"
+      } ${bouncing && !isMobile ? "dock-bounce" : ""}`}
       whileHover={isMobile ? undefined : { scale: 1.15, y: -10 }}
       whileTap={isMobile ? { scale: 0.85 } : undefined}
       transition={{ type: "spring", stiffness: 300, damping: 15 }}
@@ -157,7 +160,7 @@ export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark
       id="tour-dock"
       className={`dock-glass fixed z-50 ${
         isMobile
-          ? "bottom-0 left-0 right-0 px-3 pt-2.5 rounded-t-3xl overflow-x-auto no-scrollbar"
+          ? "bottom-0 left-0 right-0 px-3 pt-2.5 rounded-t-3xl"
           : "bottom-4 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 px-3 py-2.5 rounded-2xl"
       }`}
       style={
@@ -166,8 +169,9 @@ export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark
           : undefined
       }
     >
-      {/* w-max + mx-auto centers the icons when they fit, scrolls when they don't */}
-      <div className={`flex w-max items-center ${isMobile ? "gap-3 mx-auto" : "gap-2.5"}`}>
+      {/* Mobile: full-width flex row where every icon flexes to fit the screen.
+          Desktop: intrinsic width, centered. */}
+      <div className={`flex items-center ${isMobile ? "w-full justify-between gap-1.5" : "w-max gap-2.5"}`}>
         {visibleItems.map((item) => (
           <DockItemComponent
             key={item.id}
