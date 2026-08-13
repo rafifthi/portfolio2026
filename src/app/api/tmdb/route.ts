@@ -46,7 +46,11 @@ interface TmdbDetails {
   runtime?: number;
   number_of_seasons?: number;
   genres?: TmdbGenre[];
-  credits?: { cast?: { name: string }[] };
+  created_by?: { name: string }[];
+  credits?: {
+    cast?: { name: string }[];
+    crew?: { name: string; job?: string }[];
+  };
 }
 
 function yearOf(date?: string) {
@@ -112,6 +116,12 @@ export async function GET(req: NextRequest) {
       }
 
       const data = (await res.json()) as TmdbDetails;
+      const creators =
+        mediaType === "movie"
+          ? (data.credits?.crew ?? [])
+              .filter((member) => member.job === "Director")
+              .map((member) => member.name)
+          : (data.created_by ?? []).map((member) => member.name);
       const prefill = {
         kind: mediaType === "movie" ? ("movie" as const) : ("series" as const),
         title: data.title ?? data.name ?? "",
@@ -121,6 +131,7 @@ export async function GET(req: NextRequest) {
         backdrop: data.backdrop_path ?? "",
         genres: (data.genres ?? []).map((genre) => genre.name),
         cast: (data.credits?.cast ?? []).slice(0, 3).map((member) => member.name),
+        creators: Array.from(new Set(creators)),
         duration:
           mediaType === "movie"
             ? formatRuntime(data.runtime)
