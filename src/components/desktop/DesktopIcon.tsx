@@ -100,7 +100,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
             alt={label}
             className={
               compact
-                ? "h-16 w-auto max-w-[80px] object-contain"
+                ? "h-24 w-auto max-w-[120px] object-contain"
                 : "w-full h-auto object-contain"
             }
             style={{ borderRadius: DESKTOP_ICON_RADIUS }}

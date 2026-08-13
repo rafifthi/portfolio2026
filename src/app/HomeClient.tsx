@@ -624,7 +624,7 @@ export default function HomeClient({
               image={item.image}
               x={isMobile ? mobilePosition.x : item.x}
               y={isMobile ? mobilePosition.y : item.y}
-              width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
+              width={isMobile ? 144 : isTablet ? Math.round(item.width * 0.8) : item.width}
               onOpen={() => openApp(item.appId)}
               compact={isMobile}
             />
