@@ -41,8 +41,9 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
 }
 
 function DockIcon({ item, isMobile, theme }: { item: DockItemDef; isMobile: boolean; theme: "dark" | "light" }) {
-  const size = isMobile ? 48 : 52;
   const src = getDockIconSrc(item.id, theme);
+  const size = isMobile ? 58 : 52;
+  const sizeStyle = { width: size, height: size };
 
   if (src) {
     return (
@@ -50,7 +51,7 @@ function DockIcon({ item, isMobile, theme }: { item: DockItemDef; isMobile: bool
         src={src}
         alt={item.name}
         className="rounded-xl shadow-md object-cover"
-        style={{ width: size, height: size }}
+        style={sizeStyle}
         draggable={false}
       />
     );
@@ -66,7 +67,7 @@ function DockIcon({ item, isMobile, theme }: { item: DockItemDef; isMobile: bool
   return (
     <div
       className="rounded-xl flex items-center justify-center shadow-md"
-      style={{ width: size, height: size, background: fallbackColors[item.id] || item.color || "#6b7280" }}
+      style={{ ...sizeStyle, background: fallbackColors[item.id] || item.color || "#6b7280" }}
     >
       <Icon name={item.icon || "Box"} size={22} className="text-white" />
     </div>
@@ -152,12 +153,22 @@ export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark
   // iOS docks have no separators
   const visibleItems = isMobile ? items.filter((i) => !i.isSeparator) : items;
 
+  const iconEls = visibleItems.map((item) => (
+    <DockItemComponent
+      key={item.id}
+      item={item}
+      onOpen={() => onOpenApp(item.id)}
+      isMobile={isMobile}
+      theme={theme}
+    />
+  ));
+
   return (
     <div
       id="tour-dock"
       className={`dock-glass fixed z-50 ${
         isMobile
-          ? "bottom-0 left-0 right-0 px-3 pt-2.5 rounded-t-3xl overflow-x-auto no-scrollbar"
+          ? "bottom-0 left-0 right-0 px-3 pt-2.5 rounded-t-3xl"
           : "bottom-4 left-1/2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 px-3 py-2.5 rounded-2xl"
       }`}
       style={
@@ -166,18 +177,21 @@ export default function Dock({ items, onOpenApp, isMobile = false, theme = "dark
           : undefined
       }
     >
-      {/* w-max + mx-auto centers the icons when they fit, scrolls when they don't */}
-      <div className={`flex w-max items-center ${isMobile ? "gap-3 mx-auto" : "gap-2.5"}`}>
-        {visibleItems.map((item) => (
-          <DockItemComponent
-            key={item.id}
-            item={item}
-            onOpen={() => onOpenApp(item.id)}
-            isMobile={isMobile}
-            theme={theme}
-          />
-        ))}
-      </div>
+      {isMobile ? (
+        // Larger icons that intentionally overflow; the right-edge fade signals
+        // that more apps are hidden and the row scrolls horizontally.
+        <div
+          className="overflow-x-auto no-scrollbar"
+          style={{
+            maskImage: "linear-gradient(to right, #000 86%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, #000 86%, transparent 100%)",
+          }}
+        >
+          <div className="flex w-max items-center gap-3 pr-6">{iconEls}</div>
+        </div>
+      ) : (
+        <div className="flex w-max items-center gap-2.5">{iconEls}</div>
+      )}
     </div>
   );
 }

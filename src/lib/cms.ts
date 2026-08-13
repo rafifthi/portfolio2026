@@ -65,6 +65,9 @@ export interface PortfolioDesktopData {
   icon?: string;
   color?: string;
   media?: CmsImageMetadata;
+  /** Per-viewport home-icon position (percent). `x`/`y` above drive desktop
+   *  (and tablet, scaled); `mobile` overrides the auto-scatter on phones. */
+  mobile?: { x: number; y: number };
 }
 
 export interface PortfolioEntryData {

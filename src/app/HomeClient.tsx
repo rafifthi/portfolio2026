@@ -88,23 +88,28 @@ const DOCK_ITEMS = [
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
+// Scattered but evenly spread across the whole screen (percentages of the
+// desktop area). Ordered so the first few items already cover top → bottom
+// instead of clustering in one corner. Icons are ~120px wide / 116px tall, so
+// x stays within ~[6, 52] to keep them on-screen and y within ~[10, 70].
 const MOBILE_ICON_POSITIONS = [
-  { x: 7, y: 8 },
-  { x: 59, y: 16 },
-  { x: 31, y: 29 },
-  { x: 63, y: 39 },
-  { x: 4, y: 48 },
-  { x: 46, y: 57 },
-  { x: 14, y: 67 },
+  { x: 9, y: 12 },
+  { x: 50, y: 36 },
+  { x: 16, y: 62 },
+  { x: 52, y: 11 },
+  { x: 7, y: 38 },
+  { x: 46, y: 64 },
+  { x: 30, y: 25 },
 ];
 
 function getMobileIconPosition(index: number) {
   if (MOBILE_ICON_POSITIONS[index]) return MOBILE_ICON_POSITIONS[index];
 
+  // Overflow past the curated set: alternate columns, stepping down the screen.
   const overflowIndex = index - MOBILE_ICON_POSITIONS.length;
   return {
-    x: overflowIndex % 2 === 0 ? 58 : 9,
-    y: 75 + Math.floor(overflowIndex / 2) * 14,
+    x: overflowIndex % 2 === 0 ? 30 : 8,
+    y: 44 + Math.floor(overflowIndex / 2) * 18,
   };
 }
 
@@ -216,6 +221,8 @@ export default function HomeClient({
           x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
           y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
           width: Number.isFinite(desktop?.width) ? desktop.width : 170,
+          mobileX: Number.isFinite(desktop?.mobile?.x) ? desktop!.mobile!.x : undefined,
+          mobileY: Number.isFinite(desktop?.mobile?.y) ? desktop!.mobile!.y : undefined,
           appId: `cms-portfolio:${entry.id}`,
         };
       }),
@@ -234,6 +241,8 @@ export default function HomeClient({
             x: aboutData.desktop.x,
             y: aboutData.desktop.y,
             width: aboutData.desktop.width,
+            mobileX: Number.isFinite(aboutData.desktop.mobile?.x) ? aboutData.desktop.mobile!.x : undefined,
+            mobileY: Number.isFinite(aboutData.desktop.mobile?.y) ? aboutData.desktop.mobile!.y : undefined,
             appId: "about",
           }]
         : []),
@@ -246,6 +255,8 @@ export default function HomeClient({
         x: wifeData.desktop.x,
         y: wifeData.desktop.y,
         width: wifeData.desktop.width,
+        mobileX: Number.isFinite(wifeData.desktop.mobile?.x) ? wifeData.desktop.mobile!.x : undefined,
+        mobileY: Number.isFinite(wifeData.desktop.mobile?.y) ? wifeData.desktop.mobile!.y : undefined,
         appId: "wife",
       },
     ].filter((item) => item.image),
@@ -299,12 +310,21 @@ export default function HomeClient({
 
   const focusWindow = useCallback(
     (id: string) => {
+      // Skip the state update when the window is already frontmost. focusWindow
+      // fires on every pointerdown inside a window/sheet; on touch devices an
+      // unnecessary re-render (and z-index churn) here cancels the native scroll
+      // gesture a touch-drag is starting — so scrolling silently fails on phones
+      // while mouse-wheel scrolling (which fires no pointerdown) still works.
+      const target = windows.find((w) => w.id === id);
+      if (!target) return;
+      const maxZ = windows.reduce((max, w) => Math.max(max, w.zIndex), 0);
+      if (target.zIndex === maxZ && !target.isMinimized) return;
       setWindows((prev) =>
         prev.map((w) => (w.id === id ? { ...w, zIndex: nextZIndex, isMinimized: false } : w))
       );
       setNextZIndex((z) => z + 1);
     },
-    [nextZIndex]
+    [windows, nextZIndex]
   );
 
   const openApp = useCallback(
@@ -606,7 +626,12 @@ export default function HomeClient({
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
         {allDesktopItems.map((item, i) => {
-          const mobilePosition = getMobileIconPosition(i);
+          // Prefer a CMS-configured mobile position; otherwise fall back to the
+          // auto-scatter layout so new entries are always placed sensibly.
+          const mobilePosition =
+            Number.isFinite(item.mobileX) && Number.isFinite(item.mobileY)
+              ? { x: item.mobileX as number, y: item.mobileY as number }
+              : getMobileIconPosition(i);
           return (
             <DesktopIcon
               key={item.id}
@@ -615,9 +640,8 @@ export default function HomeClient({
               image={item.image}
               x={isMobile ? mobilePosition.x : item.x}
               y={isMobile ? mobilePosition.y : item.y}
-              width={isMobile ? 96 : isTablet ? Math.round(item.width * 0.8) : item.width}
+              width={isMobile ? 120 : isTablet ? Math.round(item.width * 0.8) : item.width}
               onOpen={() => openApp(item.appId)}
-              disableDrag={isMobile}
               compact={isMobile}
             />
           );
@@ -644,6 +668,10 @@ export default function HomeClient({
         {windows.map((win) => {
           const config = getAppConfig(win.appId);
           if (!config || win.isMinimized) return null;
+          // On mobile, only the frontmost app is shown as a sheet (iOS-style
+          // single-app view). Others stay in state (still "open" in the dock)
+          // but don't stack up visually; closing the top reveals the previous.
+          if (isMobile && topWindow && win.id !== topWindow.id) return null;
           const AppComponent = config.component;
 
           return (
