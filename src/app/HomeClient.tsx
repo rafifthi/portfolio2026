@@ -88,23 +88,28 @@ const DOCK_ITEMS = [
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
 
+// Scattered but evenly spread across the whole screen (percentages of the
+// desktop area). Ordered so the first few items already cover top → bottom
+// instead of clustering in one corner. Icons are ~120px wide / 116px tall, so
+// x stays within ~[6, 52] to keep them on-screen and y within ~[10, 70].
 const MOBILE_ICON_POSITIONS = [
-  { x: 7, y: 8 },
-  { x: 59, y: 16 },
-  { x: 31, y: 29 },
-  { x: 63, y: 39 },
-  { x: 4, y: 48 },
-  { x: 46, y: 57 },
-  { x: 14, y: 67 },
+  { x: 9, y: 12 },
+  { x: 50, y: 36 },
+  { x: 16, y: 62 },
+  { x: 52, y: 11 },
+  { x: 7, y: 38 },
+  { x: 46, y: 64 },
+  { x: 30, y: 25 },
 ];
 
 function getMobileIconPosition(index: number) {
   if (MOBILE_ICON_POSITIONS[index]) return MOBILE_ICON_POSITIONS[index];
 
+  // Overflow past the curated set: alternate columns, stepping down the screen.
   const overflowIndex = index - MOBILE_ICON_POSITIONS.length;
   return {
-    x: overflowIndex % 2 === 0 ? 58 : 9,
-    y: 75 + Math.floor(overflowIndex / 2) * 14,
+    x: overflowIndex % 2 === 0 ? 30 : 8,
+    y: 44 + Math.floor(overflowIndex / 2) * 18,
   };
 }
 
@@ -624,7 +629,7 @@ export default function HomeClient({
               image={item.image}
               x={isMobile ? mobilePosition.x : item.x}
               y={isMobile ? mobilePosition.y : item.y}
-              width={isMobile ? 144 : isTablet ? Math.round(item.width * 0.8) : item.width}
+              width={isMobile ? 120 : isTablet ? Math.round(item.width * 0.8) : item.width}
               onOpen={() => openApp(item.appId)}
               compact={isMobile}
             />
