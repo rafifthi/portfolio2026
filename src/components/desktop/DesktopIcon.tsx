@@ -21,9 +21,6 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
   const [hovered, setHovered] = useState(false);
   const dragControls = useDragControls();
   const dragged = useRef(false);
-  // Document glyphs (readme/cv, etc.) look best fully visible; photos fill the
-  // tile. Detect vector file-icons so we don't crop them.
-  const isGlyph = /\.svg($|\?)/i.test(image);
 
   const handleActivate = () => {
     // Suppress the click that fires right after a drag; otherwise open the app.
@@ -86,10 +83,11 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
             : "none",
         }}
       >
-        {/* Thumbnail — on mobile every icon shares one uniform square tile so
-            sizes stay consistent regardless of image aspect ratio or label. */}
+        {/* Thumbnail — on mobile every icon is normalized to the same scale
+            (fixed height) while keeping its own aspect ratio; the tile shrinks
+            to the image so nothing is cropped or stretched into a square. */}
         <div
-          className={`${compact ? "h-16 w-16" : "w-full"} overflow-hidden shadow-lg transition-all duration-150 flex items-center justify-center`}
+          className={`${compact ? "" : "w-full"} overflow-hidden shadow-lg transition-all duration-150 flex items-center justify-center`}
           style={{
             borderRadius: DESKTOP_ICON_RADIUS,
             boxShadow: hovered
@@ -102,7 +100,7 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
             alt={label}
             className={
               compact
-                ? `h-full w-full ${isGlyph ? "object-contain p-0.5" : "object-cover"}`
+                ? "h-16 w-auto max-w-[80px] object-contain"
                 : "w-full h-auto object-contain"
             }
             style={{ borderRadius: DESKTOP_ICON_RADIUS }}
