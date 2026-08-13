@@ -1288,6 +1288,14 @@ function DesktopAssetFields<TData extends { desktop: PortfolioEntryData["desktop
           <span className="mb-1 block text-xs font-medium text-white/50">Y %</span>
           <input type="number" value={data.desktop.y} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, y: Number(event.target.value) } }))} className={inputClass()} />
         </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Mobile X %</span>
+          <input type="number" placeholder="auto" value={data.desktop.mobile?.x ?? ""} onChange={(event) => setData((current) => { const raw = event.target.value; const x = raw === "" ? undefined : Number(raw); const y = current.desktop.mobile?.y; const mobile = x === undefined && y === undefined ? undefined : { x: x ?? 0, y: y ?? 0 }; return { ...current, desktop: { ...current.desktop, mobile } }; })} className={inputClass()} />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs font-medium text-white/50">Mobile Y %</span>
+          <input type="number" placeholder="auto" value={data.desktop.mobile?.y ?? ""} onChange={(event) => setData((current) => { const raw = event.target.value; const y = raw === "" ? undefined : Number(raw); const x = current.desktop.mobile?.x; const mobile = x === undefined && y === undefined ? undefined : { x: x ?? 0, y: y ?? 0 }; return { ...current, desktop: { ...current.desktop, mobile } }; })} className={inputClass()} />
+        </label>
       </div>
     </section>
   );
@@ -2449,7 +2457,16 @@ function PortfolioForm({
             <span className="mb-1 block text-xs font-medium text-white/50">Y %</span>
             <input type="number" value={data.desktop.y} onChange={(event) => setData((current) => ({ ...current, desktop: { ...current.desktop, y: Number(event.target.value) } }))} className={inputClass()} />
           </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Mobile X %</span>
+            <input type="number" placeholder="auto" value={data.desktop.mobile?.x ?? ""} onChange={(event) => setData((current) => { const raw = event.target.value; const x = raw === "" ? undefined : Number(raw); const y = current.desktop.mobile?.y; const mobile = x === undefined && y === undefined ? undefined : { x: x ?? 0, y: y ?? 0 }; return { ...current, desktop: { ...current.desktop, mobile } }; })} className={inputClass()} />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-white/50">Mobile Y %</span>
+            <input type="number" placeholder="auto" value={data.desktop.mobile?.y ?? ""} onChange={(event) => setData((current) => { const raw = event.target.value; const y = raw === "" ? undefined : Number(raw); const x = current.desktop.mobile?.x; const mobile = x === undefined && y === undefined ? undefined : { x: x ?? 0, y: y ?? 0 }; return { ...current, desktop: { ...current.desktop, mobile } }; })} className={inputClass()} />
+          </label>
         </div>
+        <p className="mt-2 text-xs text-white/35">Mobile X/Y set this icon&apos;s position on phone home screens (percent). Leave blank to auto-place. Desktop X/Y also drives tablet (scaled).</p>
       </div>
 
       <div>

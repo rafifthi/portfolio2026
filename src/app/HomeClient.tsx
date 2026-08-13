@@ -221,6 +221,8 @@ export default function HomeClient({
           x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
           y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
           width: Number.isFinite(desktop?.width) ? desktop.width : 170,
+          mobileX: Number.isFinite(desktop?.mobile?.x) ? desktop!.mobile!.x : undefined,
+          mobileY: Number.isFinite(desktop?.mobile?.y) ? desktop!.mobile!.y : undefined,
           appId: `cms-portfolio:${entry.id}`,
         };
       }),
@@ -239,6 +241,8 @@ export default function HomeClient({
             x: aboutData.desktop.x,
             y: aboutData.desktop.y,
             width: aboutData.desktop.width,
+            mobileX: Number.isFinite(aboutData.desktop.mobile?.x) ? aboutData.desktop.mobile!.x : undefined,
+            mobileY: Number.isFinite(aboutData.desktop.mobile?.y) ? aboutData.desktop.mobile!.y : undefined,
             appId: "about",
           }]
         : []),
@@ -251,6 +255,8 @@ export default function HomeClient({
         x: wifeData.desktop.x,
         y: wifeData.desktop.y,
         width: wifeData.desktop.width,
+        mobileX: Number.isFinite(wifeData.desktop.mobile?.x) ? wifeData.desktop.mobile!.x : undefined,
+        mobileY: Number.isFinite(wifeData.desktop.mobile?.y) ? wifeData.desktop.mobile!.y : undefined,
         appId: "wife",
       },
     ].filter((item) => item.image),
@@ -620,7 +626,12 @@ export default function HomeClient({
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
         {allDesktopItems.map((item, i) => {
-          const mobilePosition = getMobileIconPosition(i);
+          // Prefer a CMS-configured mobile position; otherwise fall back to the
+          // auto-scatter layout so new entries are always placed sensibly.
+          const mobilePosition =
+            Number.isFinite(item.mobileX) && Number.isFinite(item.mobileY)
+              ? { x: item.mobileX as number, y: item.mobileY as number }
+              : getMobileIconPosition(i);
           return (
             <DesktopIcon
               key={item.id}

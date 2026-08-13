@@ -28,6 +28,10 @@ export interface DesktopItem {
   x: number;
   y: number;
   width: number;
+  /** Optional mobile home-screen position (percent). Falls back to an
+   *  auto-scatter layout when not set. */
+  mobileX?: number;
+  mobileY?: number;
   appId: string;
 }
 
