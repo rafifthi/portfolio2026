@@ -36,6 +36,7 @@ function getDockIconSrc(id: string, theme: "dark" | "light") {
   if (id === "lumona") return theme === "dark" ? "/dock/lumona-dark.png" : "/dock/lumona-light.png";
   if (id === "netflix") return theme === "dark" ? "/dock/netflix-dark.png" : "/dock/netflix-light.png";
   if (id === "invitation") return "/dock/digital-invitation.png";
+  if (id === "odyssey") return "/dock/odyssey.svg";
   if (id === "apps") return "/dock/spotlight.png";
   return map[id] || null;
 }

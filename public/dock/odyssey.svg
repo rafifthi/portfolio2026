@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="odySea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d556b"/>
+      <stop offset="0.5" stop-color="#12384a"/>
+      <stop offset="1" stop-color="#0b2531"/>
+    </linearGradient>
+    <radialGradient id="odyGlow" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#odySea)"/>
+  <rect width="120" height="120" rx="26" fill="url(#odyGlow)"/>
+  <!-- faint wave lines -->
+  <g stroke="#a9d8dd" stroke-width="1.4" fill="none" opacity="0.22" stroke-linecap="round">
+    <path d="M16 90 q7 -5 14 0 t14 0 t14 0 t14 0 t14 0"/>
+    <path d="M18 100 q7 -5 14 0 t14 0 t14 0 t14 0"/>
+  </g>
+  <!-- compass rose -->
+  <g transform="translate(60 54)">
+    <circle r="34" fill="none" stroke="#e9d8b4" stroke-width="2.5" opacity="0.5"/>
+    <circle r="27" fill="none" stroke="#e9d8b4" stroke-width="1" opacity="0.3"/>
+    <path d="M0 -32 L7 0 L0 32 L-7 0 Z" fill="#e9d8b4" opacity="0.55"/>
+    <path d="M-32 0 L0 -7 L32 0 L0 7 Z" fill="#e9d8b4" opacity="0.35"/>
+    <path d="M0 -32 L7 0 L0 0 Z" fill="#f2c65a"/>
+    <path d="M0 32 L-7 0 L0 0 Z" fill="#d8a63a"/>
+    <path d="M32 0 L0 7 L0 0 Z" fill="#f2c65a"/>
+    <circle r="4" fill="#3a2a17"/>
+    <circle r="4" fill="none" stroke="#f2c65a" stroke-width="1.5"/>
+  </g>
+</svg>

@@ -25,6 +25,7 @@ import Onboarding from "@/components/Onboarding";
 import BootScreen from "@/components/BootScreen";
 import Settings from "@/components/apps/Settings";
 import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
+import Odyssey from "@/components/apps/Odyssey";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { DesktopItem, WindowState } from "@/lib/types";
@@ -75,6 +76,7 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   apps: { title: "Spotlight", icon: "/dock/spotlight.png", color: "#6b7280", width: 640, height: 520, component: AppLauncher },
   settings: { title: "Settings", icon: "Settings", color: "#6b7280", width: 680, height: 540, component: Settings },
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
+  odyssey: { title: "Odyssey", icon: "Compass", color: "#12384a", width: 900, height: 620, component: Odyssey },
 };
 
 const DOCK_ITEMS = [
@@ -85,6 +87,7 @@ const DOCK_ITEMS = [
   { id: "music", name: "Music", icon: "Music", color: "#ff2d55" },
   { id: "terminal", name: "Terminal", icon: "Terminal", color: "#1f2937" },
   { id: "netflix", name: "Netflix", icon: "Play", color: "#E50914" },
+  { id: "odyssey", name: "Odyssey", icon: "Compass", color: "#12384a" },
   { id: "separator", name: "", icon: "", color: "", isSeparator: true },
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
