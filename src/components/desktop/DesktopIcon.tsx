@@ -24,8 +24,10 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
 
   const handleActivate = () => {
     // Suppress the click that fires right after a drag; otherwise open the app.
-    // The flag is cleared in onDragEnd (below), not here, so an icon that was
-    // dragged without a trailing click still opens on its next click.
+    // The flag is reset on the next pointerdown (start of a fresh interaction),
+    // NOT on a timer here. On touch the synthesized `click` arrives in a later
+    // task than pointerup, so a setTimeout-based reset would run first and let
+    // the drag-ending tap open the app — the exact mobile bug this avoids.
     if (dragged.current) return;
     onOpen();
   };
@@ -44,10 +46,6 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
       whileDrag={{ zIndex: 50 }}
       initial={false}
       onDragStart={() => { dragged.current = true; }}
-      onDragEnd={() => {
-        // Clear after the click that may follow this drag has been handled.
-        setTimeout(() => { dragged.current = false; }, 0);
-      }}
       className="absolute flex flex-col items-center gap-0 text-inherit group select-none"
       style={{
         left: `${x}%`,
@@ -61,7 +59,14 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
         role="button"
         tabIndex={0}
         aria-label={`Open ${label}`}
-        onPointerDown={(e) => { if (!disableDrag) dragControls.start(e); }}
+        onPointerDown={(e) => {
+          if (disableDrag) return;
+          // Fresh interaction: clear the previous drag's suppression flag here,
+          // before any drag/click of this gesture. onDragStart re-sets it if the
+          // pointer actually moves, so a real drag still suppresses its trailing tap.
+          dragged.current = false;
+          dragControls.start(e);
+        }}
         onClick={handleActivate}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
