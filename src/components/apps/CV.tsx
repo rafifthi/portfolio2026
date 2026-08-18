@@ -67,8 +67,14 @@ export default function CV() {
       </div>
 
       {/* CV Document */}
-      <div className="flex-1 overflow-auto bg-gray-200">
-        <div style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}>
+      <div className="flex-1 overflow-auto bg-white flex">
+        {/* `m-auto` centers the document when it's smaller than the viewport
+            (zoomed out) and collapses to 0 when it's larger (zoomed in), so a
+            zoomed-in page still scrolls from its top-left corner. */}
+        <div
+          className="m-auto shrink-0"
+          style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+        >
           <iframe
             src={PDF_SRC}
             title="CV - Rafif Fathi Misbah"
