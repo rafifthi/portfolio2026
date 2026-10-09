@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useSyncExternalStore, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useSyncExternalStore, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@/components/Icon";
 import { CmsEntry, DEFAULT_PORTFOLIO_PASSCODE, PortfolioEntryData } from "@/lib/cms";
 import { renderInline } from "@/lib/inline-markdown";
@@ -43,6 +44,16 @@ const PASSCODE_STORAGE_PREFIX = "portfolio-project-passcode:";
 /** Static label shown for the project link (the raw URL stays in `href`). */
 const PROJECT_LINK_LABEL = "Project Link";
 
+/** Shared trigger/link styling so the gated button looks identical to the live link. */
+const PROJECT_LINK_CLASS =
+  "flex w-full min-w-0 items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 lg:w-auto lg:max-w-80 lg:shrink-0";
+
+const PROJECT_LINK_STYLE: CSSProperties = {
+  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+  borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
+  outlineColor: "var(--accent)",
+};
+
 function subscribePasscodeUnlock(onChange: () => void) {
   if (typeof window === "undefined") return () => {};
   window.addEventListener("storage", onChange);
@@ -65,6 +76,131 @@ function writeStoredUnlock(storageKey: string) {
   }
 }
 
+function PasscodeModal({
+  passcode,
+  onClose,
+  onUnlock,
+}: {
+  passcode: string;
+  onClose: () => void;
+  onUnlock: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState("");
+
+  // HomeClient closes the topmost window on Escape via a bubble-phase window
+  // listener — intercept in capture phase so Esc #1 only closes this modal.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [onClose]);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (typed === passcode) {
+      onUnlock();
+      return;
+    }
+    setError("Incorrect passcode. Try again.");
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="project-link-passcode-title"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-xl border p-5 shadow-2xl"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border-subtle)" }}
+      >
+        <div className="flex items-start gap-3">
+          <Icon name="Lock" size={18} className="mt-0.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
+          <div className="min-w-0 flex-1">
+            <h2 id="project-link-passcode-title" className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+              {PROJECT_LINK_LABEL}
+            </h2>
+            <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
+              This project link is passcode protected.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close passcode dialog"
+            className="-mr-1 -mt-1 flex-shrink-0 rounded-md p-1.5 transition-colors hover:brightness-125 focus-visible:outline-2"
+            style={{ color: "var(--text-tertiary)", outlineColor: "var(--accent)" }}
+          >
+            <Icon name="X" size={17} />
+          </button>
+        </div>
+
+        <input
+          type="password"
+          value={typed}
+          autoFocus
+          onChange={(event) => {
+            setTyped(event.target.value);
+            if (error) setError("");
+          }}
+          placeholder="Enter passcode"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label="Project link passcode"
+          className="mt-4 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:outline-2"
+          style={{
+            background: "var(--bg-input)",
+            borderColor: "var(--border-subtle)",
+            color: "var(--text-primary)",
+            outlineColor: "var(--accent)",
+          }}
+        />
+
+        {error ? (
+          <p role="alert" className="mt-2 text-xs" style={{ color: "#fda4af" }}>
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:brightness-110"
+            style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-md border px-4 py-2 text-sm font-semibold transition-colors hover:brightness-110"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 18%, transparent)",
+              borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
+              color: "var(--accent)",
+            }}
+          >
+            Unlock
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function ProjectLinkButton({
   link,
   entryId,
@@ -79,8 +215,7 @@ function ProjectLinkButton({
   const requiredPasscode = passcode && passcode.length > 0 ? passcode : DEFAULT_PORTFOLIO_PASSCODE;
   const storageKey = `${PASSCODE_STORAGE_PREFIX}${entryId}`;
   const [unlockedByUser, setUnlockedByUser] = useState(false);
-  const [typed, setTyped] = useState("");
-  const [error, setError] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
   const unlockedInSession = useSyncExternalStore(
     subscribePasscodeUnlock,
     () => readStoredUnlock(storageKey),
@@ -88,72 +223,48 @@ function ProjectLinkButton({
   );
   const unlocked = !gated || unlockedByUser || unlockedInSession;
 
-  function submitPasscode(event: FormEvent) {
-    event.preventDefault();
-    if (typed === requiredPasscode) {
-      setUnlockedByUser(true);
-      setError("");
-      writeStoredUnlock(storageKey);
-      return;
-    }
-    setError("Incorrect passcode. Try again.");
+  function handleUnlock() {
+    setUnlockedByUser(true);
+    writeStoredUnlock(storageKey);
+    setModalOpen(false);
+    // Same user gesture as the submit, so popup blockers allow it.
+    window.open(link.href, "_blank", "noopener");
   }
 
   if (gated && !unlocked) {
     return (
-      <form
-        onSubmit={submitPasscode}
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => event.stopPropagation()}
-        className="flex w-full min-w-0 flex-col gap-2 rounded-lg border px-3 py-2.5 lg:w-80 lg:shrink-0"
-        style={{
-          background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-          borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
-        }}
-      >
-        <span className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--accent)" }}>
-          <Icon name="Lock" size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
-          {PROJECT_LINK_LABEL}
-        </span>
-        <div className="flex min-w-0 items-center gap-2">
-          <input
-            type="password"
-            value={typed}
-            onChange={(event) => {
-              setTyped(event.target.value);
-              if (error) setError("");
-            }}
-            placeholder="Enter passcode"
-            autoComplete="off"
-            spellCheck={false}
-            aria-label="Project link passcode"
-            className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-sm outline-none"
-            style={{
-              background: "var(--bg-input)",
-              borderColor: "var(--border-subtle)",
-              color: "var(--text-primary)",
-            }}
-          />
-          <button
-            type="submit"
-            className="flex-shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:brightness-110"
-            style={{
-              background: "color-mix(in srgb, var(--accent) 18%, transparent)",
-              borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
-              color: "var(--accent)",
-            }}
-          >
-            Unlock
-          </button>
-        </div>
-        {error ? (
-          <span className="text-xs" style={{ color: "#fda4af" }}>{error}</span>
-        ) : (
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            This project link is passcode protected.
+      <>
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            setModalOpen(true);
+          }}
+          title="Passcode protected"
+          aria-haspopup="dialog"
+          aria-expanded={modalOpen}
+          aria-label={`${PROJECT_LINK_LABEL} (passcode protected)`}
+          className={PROJECT_LINK_CLASS}
+          style={PROJECT_LINK_STYLE}
+        >
+          <Icon name={link.isFigma ? "PenTool" : "ExternalLink"} size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+          <span className="min-w-0 truncate text-sm font-medium" style={{ color: "var(--accent)" }}>
+            {PROJECT_LINK_LABEL}
           </span>
-        )}
-      </form>
+          <Icon name="ArrowUpRight" size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+        </button>
+        {modalOpen && typeof document !== "undefined"
+          ? createPortal(
+              <PasscodeModal
+                passcode={requiredPasscode}
+                onClose={() => setModalOpen(false)}
+                onUnlock={handleUnlock}
+              />,
+              document.body
+            )
+          : null}
+      </>
     );
   }
 
@@ -166,12 +277,8 @@ function ProjectLinkButton({
       onClick={(event) => event.stopPropagation()}
       title={link.href}
       aria-label={`${PROJECT_LINK_LABEL}: ${link.href}`}
-      className="flex w-full min-w-0 items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 lg:w-auto lg:max-w-80 lg:shrink-0"
-      style={{
-        background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-        borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
-        outlineColor: "var(--accent)",
-      }}
+      className={PROJECT_LINK_CLASS}
+      style={PROJECT_LINK_STYLE}
     >
       <Icon name={link.isFigma ? "PenTool" : "ExternalLink"} size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
       <span className="min-w-0 truncate text-sm font-medium" style={{ color: "var(--accent)" }}>
