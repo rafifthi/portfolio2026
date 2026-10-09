@@ -19,23 +19,32 @@ import type { DesktopItem } from "./types";
  * `lg` 1024 / `xl` 1280.
  *
  * ## Resolution precedence (per item, per breakpoint)
- * 1. `DESKTOP_LAYOUT[id][breakpoint]` — curated config in this module.
- * 2. CMS-authored values: `desktop.mobile.{x,y}` for `base`, `desktop.{x,y,width}`
- *    for every desktop breakpoint (`width` scaled by `DESKTOP_WIDTH_SCALE`).
- *    This is the backward-compat channel, so existing CMS placement keeps
- *    working without touching the module.
- * 3. Auto-generated slot from `buildDesktopLayout` — deterministic, packed into
- *    a grid that avoids (1) and (2) and never leaves the viewport.
- * 4. The caller-supplied `fallback` passed to `resolveDesktopItemLayout`.
+ * 1. **CMS "Desktop Layout" module** — `options.overlay[itemId][breakpoint]`,
+ *    persisted in the `layout` CMS entry and edited in `/admin`. This is the
+ *    primary, content-editable source (`desktop-layout-cms.ts` owns the entry,
+ *    `normalizeLayoutOverlay` owns its validation).
+ * 2. `DESKTOP_LAYOUT[id][breakpoint]` — curated config in this module.
+ * 3. Legacy CMS `desktop.mobile.{x,y}` for `base`, `desktop.{x,y,width}` for the
+ *    desktop breakpoints (`width` scaled by `DESKTOP_WIDTH_SCALE`). This is the
+ *    backward-compat channel, so existing CMS placement keeps working without
+ *    touching the module or the layout entry.
+ * 4. Auto-generated slot from `buildDesktopLayout` — deterministic, packed into
+ *    a grid that avoids (1)–(3) and never leaves the viewport.
+ * 5. The caller-supplied `fallback` passed to `resolveDesktopItemLayout`.
+ *
+ * A position that survives clamping but still collides with an already-placed
+ * item is *not* forced onto the screen: it is demoted to (4) so the generator
+ * places it. Overlap is therefore impossible, whatever the overlay contains.
  *
  * Portfolio entries therefore always have a row: `buildDesktopLayout` walks the
  * entry list and generates a non-overlapping default slot for any id that has
- * neither a curated config nor CMS coordinates — a new CMS entry needs zero
- * manual layout work. `ensurePortfolioLayout` exposes the same generator for
- * callers that only have entry ids.
+ * neither a layout row, a curated config, nor CMS coordinates — a new CMS entry
+ * needs zero manual layout work. `ensureLayoutCoverage` exposes the same
+ * generator, materialised as storable `{ x, y, width }` rows for every item and
+ * every breakpoint.
  *
  * ## Backward compatibility
- * Existing CMS `desktop.x/y/mobile` values are honoured (precedence 2) but
+ * Existing CMS `desktop.x/y/mobile` values are honoured (precedence 3) but
  * clamped into the padding-safe box, so a legacy entry sitting at `x: 95` on a
  * narrow `sm` viewport is pulled back on screen instead of clipping.
  */
@@ -119,6 +128,12 @@ export interface BuildLayoutOptions {
   activeBreakpoint?: LayoutBreakpoint | null;
   /** Live viewport in px. Ignored (reference sizes used) when zero/absent. */
   viewport?: LayoutViewport | null;
+  /**
+   * Per-item, per-breakpoint rows authored in the CMS **Desktop Layout**
+   * module (the `layout` entry) — the primary source, precedence 1.
+   * `normalizeLayoutOverlay(entry.data)` produces this shape.
+   */
+  overlay?: DesktopLayoutMap | null;
 }
 
 export const MOBILE_ICON_WIDTH = 120;
@@ -145,6 +160,17 @@ export const DESKTOP_WIDTH_SCALE: Record<LayoutBreakpoint, number> = {
   lg: 1,
   xl: 1,
 };
+
+/**
+ * Compact (phone) icon image height ÷ width — the `cozy` tier ratio (96/120).
+ * A CMS-authored `base` row only stores `width`, so the height is derived with
+ * this ratio, keeping small phones proportional when a crowded tier shrinks.
+ */
+export const MOBILE_ICON_IMAGE_RATIO = MOBILE_ICON_IMAGE_HEIGHT / MOBILE_ICON_WIDTH;
+
+/** Bounds for a CMS-authored icon box width, in px. */
+export const LAYOUT_ROW_WIDTH_MIN = 60;
+export const LAYOUT_ROW_WIDTH_MAX = 400;
 
 /** Padding of `#tour-desktop-area` (`pt-16 pb-28 px-4` vs `pt-8 pb-20 px-4`). */
 export const LAYOUT_AREA_PADDING: Record<LayoutBreakpoint, { top: number; bottom: number; side: number }> = {
@@ -215,10 +241,10 @@ interface GridTier {
  * the roomy look while a busy desktop area shrinks instead of overlapping.
  */
 const MOBILE_GRID_TIERS: GridTier[] = [
-  { id: "cozy", iconWidth: 120, imageHeight: MOBILE_ICON_IMAGE_HEIGHT, gapX: 18, gapY: 16 },
-  { id: "dense", iconWidth: 104, imageHeight: 82, gapX: 16, gapY: 12 },
+  { id: "cozy", iconWidth: 120, imageHeight: 96, gapX: 18, gapY: 16 },
+  { id: "dense", iconWidth: 104, imageHeight: 83, gapX: 16, gapY: 12 },
   { id: "compact", iconWidth: 88, imageHeight: 70, gapX: 14, gapY: 10 },
-  { id: "mini", iconWidth: 76, imageHeight: 58, gapX: 12, gapY: 8 },
+  { id: "mini", iconWidth: 76, imageHeight: 61, gapX: 12, gapY: 8 },
 ];
 
 /** Desktop tiers, scaling the icon box down when the viewport is crowded. */
@@ -532,14 +558,16 @@ function cloverlaps(point: DesktopItemLayout, breakpoint: LayoutBreakpoint, view
  * Curated/CMS positions are honoured when they fit. When two of them collide —
  * e.g. two desktop percentages landing on the same spot on a narrow `sm`
  * viewport — the later item is nudged to the nearest free offset (right, down,
- * left, up, then diagonals) instead of stacking.
+ * left, up, then diagonals) instead of stacking. Returns `null` when no offset
+ * works, so the caller can hand the item to the generator rather than render an
+ * overlap.
  */
 function declutterFixedPoint(
   point: DesktopItemLayout,
   breakpoint: LayoutBreakpoint,
   viewport: LayoutViewport,
   placed: Rect[]
-): DesktopItemLayout {
+): DesktopItemLayout | null {
   const base = clampPoint(point, breakpoint, viewport);
   if (!cloverlaps(base, breakpoint, viewport, placed, 0)) return base;
 
@@ -574,12 +602,14 @@ function declutterFixedPoint(
     }
   }
 
-  return base;
+  // Every offset is taken: report failure so the caller exposes the item to the
+  // generator (deterministic slot, in bounds, no overlap) instead of stacking.
+  return null;
 }
 
 /**
- * Builds the full layout map: curated config, CMS overrides, and a generated
- * slot for every remaining item, for every breakpoint.
+ * Builds the full layout map: CMS Desktop Layout rows, curated config, legacy CMS
+ * overrides, and a generated slot for every remaining item — for every breakpoint.
  *
  * Pass `activeBreakpoint` + the live `viewport` and the on-screen breakpoint is
  * generated against the real viewport; the others use their reference viewport
@@ -589,59 +619,123 @@ export function buildDesktopLayout(items: LayoutItemInput[], options: BuildLayou
   const activeBreakpoint = options.activeBreakpoint ?? null;
   const liveViewport =
     options.viewport && options.viewport.width > 0 && options.viewport.height > 0 ? options.viewport : null;
+  // CMS Desktop Layout rows — precedence 1 for every item they cover.
+  const overlay = options.overlay ?? null;
 
   const layout: DesktopLayoutMap = {};
 
-  for (const breakpoint of LAYOUT_BREAKPOINTS) {
-    const viewport = breakpoint === activeBreakpoint && liveViewport ? liveViewport : LAYOUT_REFERENCE_VIEWPORT[breakpoint];
+  /** Resolves every item for one breakpoint. `rows` may be disabled to measure
+   *  what the module manages on its own. */
+  const resolveBreakpoint = (
+    breakpoint: LayoutBreakpoint,
+    viewport: LayoutViewport,
+    rows: DesktopLayoutMap | null
+  ) => {
     const occupied: Rect[] = [];
     const fixed: Array<{ item: LayoutItemInput; point: DesktopItemLayout }> = [];
     const pending: LayoutItemInput[] = [];
     const config: DesktopLayoutConfig = {};
 
+    // Phase 1 — resolve every authored point (CMS row → curated → legacy CMS) at
+    // its own size and de-collide it against the ones already placed.
     for (const item of items) {
-      const curated = DESKTOP_LAYOUT[item.id]?.[breakpoint];
-      const point = curated ?? cmsPoint(item, breakpoint, viewport);
-      if (!point) {
+      const candidate =
+        overlayPoint(item, rows?.[item.id]?.[breakpoint], breakpoint, viewport) ??
+        DESKTOP_LAYOUT[item.id]?.[breakpoint] ??
+        cmsPoint(item, breakpoint, viewport);
+
+      const placed = candidate ? declutterFixedPoint(candidate, breakpoint, viewport, occupied) : null;
+      if (!placed) {
+        // Nothing authored for this breakpoint, or the authored position cannot
+        // be placed without colliding: let the generator give it a slot instead
+        // of stacking icons on top of each other.
         pending.push(item);
         continue;
       }
-      fixed.push({ item, point });
+
+      fixed.push({ item, point: placed });
+      setItemPoint(config, item.id, placed);
+      occupied.push(pointToRect(placed, breakpoint, viewport));
     }
 
-    for (const entry of fixed) {
-      // Keep the resolved (clamped/de-collided) point on the entry: the mobile
-      // tier-sizing pass below reuses it, and it must not fall back to the raw
-      // curated/CMS value.
-      entry.point = declutterFixedPoint(entry.point, breakpoint, viewport, occupied);
-      setItemPoint(config, entry.item.id, entry.point);
-      occupied.push(pointToRect(entry.point, breakpoint, viewport));
+    // Phase 2 — phones: one tier size for the whole grid. The tier is chosen
+    // while the authored boxes still reserve their original space, so a crowded
+    // phone shrinks uniformly instead of running past the fold — and the choice
+    // depends only on the item set, so persisting rows can never move icons.
+    const baseSize = (() => {
+      if (breakpoint !== "base" || items.length === 0) return null;
+      const plan = planGrid(breakpoint, viewport, pending.length, occupied);
+      if (plan.iconWidth >= MOBILE_ICON_WIDTH) return null;
+      return {
+        plan,
+        width: plan.iconWidth,
+        // Derived from the width so a stored row (which keeps only `x`, `y`,
+        // `width`) reproduces the exact same box when it is read back.
+        imageHeight: Math.round(plan.iconWidth * MOBILE_ICON_IMAGE_RATIO),
+      };
+    })();
+
+    if (baseSize) {
+      // Replacing a box with a smaller one cannot invalidate a position, so the
+      // de-collided `x`/`y` are kept as they are.
+      for (const { item, point } of fixed) {
+        setItemPoint(config, item.id, {
+          ...point,
+          width: baseSize.width,
+          imageHeight: baseSize.imageHeight,
+        });
+      }
     }
 
     if (pending.length > 0) {
-      const plan = planGrid(breakpoint, viewport, pending.length, occupied);
-
-      // On phones every icon takes the tier's size — including curated/CMS
-      // placed ones — so a crowded breakpoint shrinks the whole grid uniformly
-      // instead of mixing 120px and 76px icons. Shrinking can't introduce an
-      // overlap, so the already-decluttered positions stay valid.
-      if (breakpoint === "base") {
+      if (baseSize) {
         occupied.length = 0;
-        for (const { item, point } of fixed) {
-          const sized: DesktopItemLayout = {
-            ...point,
-            width: plan.iconWidth,
-            imageHeight: plan.imageHeight ?? MOBILE_ICON_IMAGE_HEIGHT,
-          };
-          setItemPoint(config, item.id, sized);
-          occupied.push(pointToRect(sized, breakpoint, viewport));
+        for (const { point } of fixed) {
+          occupied.push(
+            pointToRect(
+              { ...point, width: baseSize.width, imageHeight: baseSize.imageHeight },
+              breakpoint,
+              viewport
+            )
+          );
         }
       }
 
+      const plan = baseSize?.plan ?? planGrid(breakpoint, viewport, pending.length, occupied);
       const generated = placeItems(pending, plan, viewport, occupied);
       for (const [id, point] of Object.entries(generated)) {
         setItemPoint(config, id, point);
       }
+    }
+
+    // Did every icon land inside the padding-safe box? When the area is genuinely
+    // full the generator keeps its spacing and runs past the fold (documented);
+    // that counts as "does not fit".
+    const padding = LAYOUT_AREA_PADDING[breakpoint];
+    const fits = Object.values(config).every((point) => {
+      const rect = pointToRect(point, breakpoint, viewport);
+      return (
+        rect.x >= padding.side - 0.5 &&
+        rect.x + rect.width <= viewport.width - padding.side + 0.5 &&
+        rect.y >= padding.top - 0.5 &&
+        rect.y + rect.height <= viewport.height - padding.bottom + 0.5
+      );
+    });
+
+    return { config, fits };
+  };
+
+  for (const breakpoint of LAYOUT_BREAKPOINTS) {
+    const viewport = breakpoint === activeBreakpoint && liveViewport ? liveViewport : LAYOUT_REFERENCE_VIEWPORT[breakpoint];
+    const withRows = resolveBreakpoint(breakpoint, viewport, overlay);
+    let config = withRows.config;
+
+    // Rows are seeded at the reference viewport, so on a much smaller screen they
+    // can be impossible to honour (the icons would land below the fold). The
+    // module's own generator is then the better authority for that whole
+    // breakpoint: every icon stays on screen instead of scrolling out of view.
+    if (overlay && !withRows.fits && Object.keys(config).length > 0) {
+      config = resolveBreakpoint(breakpoint, viewport, null).config;
     }
 
     for (const [id, point] of Object.entries(config)) {
@@ -713,4 +807,172 @@ export function ensurePortfolioLayout(
   });
   if (items.length === 0) return {};
   return buildDesktopLayout(items, options);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                    CMS "Desktop Layout" module rows                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Persisted payload of the `layout` CMS entry: one row per desktop item, each
+ * with `{ x, y, width }` per breakpoint. Owned by `desktop-layout-cms.ts`; all
+ * validation happens in `normalizeLayoutOverlay` below.
+ */
+export interface DesktopLayoutData {
+  items: DesktopLayoutMap;
+}
+
+/** Accepts numbers and numeric strings; `null` / `""` / `NaN` are rejected
+ *  rather than silently coerced to `0`. */
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * One persisted row: `x`/`y` are percentages of the desktop area, `width` is the
+ * icon box width in px. Out-of-range values are clamped (percent into 0–100,
+ * width into `LAYOUT_ROW_WIDTH_MIN`–`LAYOUT_ROW_WIDTH_MAX`), so a stored row can
+ * never ask for an off-screen or zero-size icon.
+ */
+function sanitizeLayoutRow(raw: unknown): DesktopItemLayout | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+  const x = toFiniteNumber(source.x);
+  const y = toFiniteNumber(source.y);
+  if (x === null || y === null) return null;
+
+  const row: DesktopItemLayout = { x: round2(clamp(x, 0, 100)), y: round2(clamp(y, 0, 100)) };
+  const width = toFiniteNumber(source.width);
+  if (width !== null && width > 0) {
+    row.width = Math.round(clamp(width, LAYOUT_ROW_WIDTH_MIN, LAYOUT_ROW_WIDTH_MAX));
+  }
+  return row;
+}
+
+/**
+ * Validates the persisted `layout` entry payload into a `DesktopLayoutMap`.
+ * Accepts either `{ items: { … } }` (the stored shape from `layoutEntryData`)
+ * or a bare map, drops unknown breakpoints and invalid rows, and keeps only
+ * `{ x, y, width }` — derived values (`aspect`, `imageHeight`) are recomputed on
+ * every build. Never throws: a corrupt entry degrades to "no overlay" instead of
+ * taking the desktop down.
+ */
+export function normalizeLayoutOverlay(raw: unknown): DesktopLayoutMap {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+
+  const container = (() => {
+    const candidate = (raw as Record<string, unknown>).items;
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      return candidate as Record<string, unknown>;
+    }
+    return raw as Record<string, unknown>;
+  })();
+
+  const overlay: DesktopLayoutMap = {};
+  for (const [itemId, value] of Object.entries(container)) {
+    if (!itemId || !value || typeof value !== "object" || Array.isArray(value)) continue;
+    const source = value as Record<string, unknown>;
+    const config: DesktopLayoutConfig = {};
+    for (const breakpoint of LAYOUT_BREAKPOINTS) {
+      const row = sanitizeLayoutRow(source[breakpoint]);
+      if (row) config[breakpoint] = row;
+    }
+    if (Object.keys(config).length > 0) overlay[itemId] = config;
+  }
+  return overlay;
+}
+
+/** Wraps a map into the `layout` entry payload, canonicalising every row. */
+export function layoutEntryData(overlay: DesktopLayoutMap): DesktopLayoutData {
+  return { items: normalizeLayoutOverlay(overlay) };
+}
+
+/** Canonical, comparison-stable serialisation — used to skip no-op writes. */
+export function layoutSignature(overlay: DesktopLayoutMap | null | undefined): string {
+  const map = overlay ?? {};
+  return JSON.stringify(
+    Object.keys(map)
+      .sort()
+      .map((itemId) => {
+        const config = map[itemId] ?? {};
+        return [
+          itemId,
+          LAYOUT_BREAKPOINTS.map((breakpoint) => {
+            const row = config[breakpoint];
+            return row ? [row.x, row.y, row.width ?? null] : null;
+          }),
+        ];
+      })
+  );
+}
+
+/**
+ * A CMS layout row → a concrete point for one breakpoint, or `null` when the row
+ * is absent/invalid — the caller then falls through to the next precedence step.
+ * The item's own media aspect and the breakpoint's default icon width are filled
+ * in, and the result is clamped into the padding-safe box.
+ */
+function overlayPoint(
+  item: LayoutItemInput,
+  row: DesktopItemLayout | undefined,
+  breakpoint: LayoutBreakpoint,
+  viewport: LayoutViewport
+): DesktopItemLayout | null {
+  if (!row || !isFiniteNumber(row.x) || !isFiniteNumber(row.y)) return null;
+
+  const point: DesktopItemLayout = { ...row };
+  const aspect = isFiniteNumber(item.imageAspect) && item.imageAspect > 0 ? item.imageAspect : undefined;
+  if (aspect && !isFiniteNumber(point.aspect)) point.aspect = aspect;
+
+  if (breakpoint === "base") {
+    const width = isFiniteNumber(point.width) ? point.width : MOBILE_ICON_WIDTH;
+    point.width = width;
+    if (!isFiniteNumber(point.imageHeight)) point.imageHeight = Math.round(width * MOBILE_ICON_IMAGE_RATIO);
+  } else if (!isFiniteNumber(point.width)) {
+    point.width = Math.round(DESKTOP_DEFAULT_ICON_WIDTH * DESKTOP_WIDTH_SCALE[breakpoint]);
+  }
+
+  return clampPoint(point, breakpoint, viewport);
+}
+
+/**
+ * Materialises the resolved layout of `items` as storable rows — every item,
+ * every breakpoint, only `{ x, y, width }`.
+ *
+ * This is what the CMS **Desktop Layout** module persists. A brand-new portfolio
+ * entry therefore gets a complete row set (deterministic generated defaults) with
+ * no manual step, and the currently rendered position is what gets seeded: an
+ * entry placed through the legacy `desktop.x/y` field keeps exactly that position
+ * (precedence 3 feeds the generated default), so nothing moves on rollout.
+ *
+ * Pass the existing rows as `options.overlay` to keep authored values and only
+ * fill in what is missing. Ids not present in `items` are dropped, so rows for
+ * deleted entries do not accumulate.
+ */
+export function ensureLayoutCoverage(items: LayoutItemInput[], options: BuildLayoutOptions = {}): DesktopLayoutMap {
+  const resolved = buildDesktopLayout(items, options);
+  const coverage: DesktopLayoutMap = {};
+
+  for (const item of items) {
+    const config = resolved[item.id];
+    if (!config) continue;
+    const row: DesktopLayoutConfig = {};
+    for (const breakpoint of LAYOUT_BREAKPOINTS) {
+      const point = config[breakpoint];
+      if (!point) continue;
+      row[breakpoint] = {
+        x: point.x,
+        y: point.y,
+        ...(isFiniteNumber(point.width) ? { width: point.width } : {}),
+      };
+    }
+    if (Object.keys(row).length > 0) coverage[item.id] = row;
+  }
+
+  return coverage;
 }

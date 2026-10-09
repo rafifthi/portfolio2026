@@ -1,6 +1,6 @@
-import { NotionBlock } from "./types";
+import type { NotionBlock } from "./types";
 
-export type CmsEntryType = "gallery" | "notes" | "portfolio" | "about" | "wife" | "netflix";
+export type CmsEntryType = "gallery" | "notes" | "portfolio" | "about" | "wife" | "netflix" | "layout";
 export type CmsStatus = "draft" | "published";
 
 export interface CmsEntry<TData = unknown> {
@@ -127,6 +127,13 @@ export interface NetflixTitleData {
   backdrop: string;
 }
 
+export interface DesktopLayoutCmsData {
+  /** itemId → per-breakpoint `{ x, y, width }`. The precise shape lives in
+   *  `desktop-layout.ts` (`DesktopLayoutData` / `normalizeLayoutOverlay`),
+   *  which owns all validation. */
+  items: Record<string, unknown>;
+}
+
 export interface CmsEntryInput<TData = unknown> {
   type: CmsEntryType;
   slug: string;
@@ -136,7 +143,14 @@ export interface CmsEntryInput<TData = unknown> {
   data: TData;
 }
 
-export const CMS_TYPES: CmsEntryType[] = ["gallery", "notes", "portfolio", "about", "wife", "netflix"];
+export const CMS_TYPES: CmsEntryType[] = ["gallery", "notes", "portfolio", "about", "wife", "netflix", "layout"];
+
+/** Entry types that may only exist once — edited through their own module. */
+export const SINGLETON_CMS_TYPES: CmsEntryType[] = ["about", "wife", "layout"];
+
+export function isSingletonCmsType(type: CmsEntryType) {
+  return SINGLETON_CMS_TYPES.includes(type);
+}
 
 export function isCmsEntryType(value: string | null): value is CmsEntryType {
   return CMS_TYPES.includes(value as CmsEntryType);

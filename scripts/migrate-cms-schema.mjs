@@ -77,6 +77,19 @@ const migrations = [
        CHECK (type IN ('gallery', 'notes', 'portfolio', 'about', 'wife', 'netflix'))`,
     ],
   },
+  {
+    // Singleton "Desktop Layout" CMS module: desktop icon positions per
+    // breakpoint, editable in /admin. The row itself is created by
+    // `src/lib/desktop-layout-cms.ts` (coverage/backfill) — this migration only
+    // teaches the table about the type.
+    version: 5,
+    name: "add-layout-entry-type",
+    statements: [
+      `ALTER TABLE cms_entries DROP CONSTRAINT IF EXISTS cms_entries_type_check`,
+      `ALTER TABLE cms_entries ADD CONSTRAINT cms_entries_type_check
+       CHECK (type IN ('gallery', 'notes', 'portfolio', 'about', 'wife', 'netflix', 'layout'))`,
+    ],
+  },
 ];
 
 function loadEnvFile(name) {

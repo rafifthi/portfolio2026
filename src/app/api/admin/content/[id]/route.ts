@@ -49,6 +49,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid content payload." }, { status: 400 });
   }
 
+  if (input.type === "layout") {
+    return NextResponse.json(
+      {
+        error:
+          "Desktop Layout is a singleton managed by its own module — use /admin → Desktop Layout (PUT /api/admin/layout).",
+      },
+      { status: 400 }
+    );
+  }
+
   try {
     if (isSingletonType(input.type)) {
       const existingEntries = await listCmsEntries(input.type, true);
@@ -85,6 +95,17 @@ export async function DELETE(
   const { id } = await params;
 
   try {
+    const existing = await getCmsEntry(id);
+    if (existing?.type === "layout") {
+      return NextResponse.json(
+        {
+          error:
+            "Desktop Layout is a singleton managed by its own module — use /admin → Desktop Layout.",
+        },
+        { status: 400 }
+      );
+    }
+
     const deletedType = await deleteCmsEntry(id);
     if (!deletedType) {
       return NextResponse.json({ error: "Content not found." }, { status: 404 });

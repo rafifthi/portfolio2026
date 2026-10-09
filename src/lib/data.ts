@@ -1,4 +1,4 @@
-import { DesktopItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
+import type { DesktopItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
 
 /**
  * Static desktop items. Positions come from `src/lib/desktop-layout.ts` (the

@@ -26,7 +26,6 @@ import BootScreen from "@/components/BootScreen";
 import Settings from "@/components/apps/Settings";
 import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
-import { desktopItems } from "@/lib/data";
 import { DesktopItem, WindowState } from "@/lib/types";
 import {
   buildDesktopLayout,
@@ -34,12 +33,20 @@ import {
   estimateImageHeight,
   layoutBreakpointQueries,
   MOBILE_ICON_WIDTH,
+  normalizeLayoutOverlay,
   resolveDesktopItemLayout,
   resolveLayoutBreakpoint,
+  type DesktopLayoutData,
   type LayoutBreakpoint,
   type LayoutViewport,
 } from "@/lib/desktop-layout";
-import { AboutData, browserImageUrl, CmsEntry, CmsImageMetadata, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import { AboutData, CmsEntry, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import {
+  aboutDesktopItem,
+  portfolioDesktopItem,
+  staticDesktopItems,
+  wifeDesktopItem,
+} from "@/lib/desktop-items";
 import { buildNetflixLists, NetflixTitle } from "@/lib/netflix-data";
 import { fallbackAboutData, fallbackWifeData } from "@/lib/profile-content";
 
@@ -88,10 +95,15 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
 };
 
-/** Image aspect (height ÷ width) from CMS media metadata, when available. */
-function mediaAspect(media?: CmsImageMetadata) {
-  if (!media || !media.width || !media.height) return undefined;
-  return media.height / media.width;
+/** Reads a `/api/content` list; failures degrade to `null` (static fallbacks). */
+async function fetchEntries<TEntry>(url: string): Promise<{ entries?: TEntry[] } | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return (await response.json()) as { entries?: TEntry[] };
+  } catch {
+    return null;
+  }
 }
 
 const DOCK_ITEMS = [
@@ -112,6 +124,10 @@ interface HomeClientProps {
   initialAboutEntry: CmsEntry<AboutData> | null;
   initialWifeEntry: CmsEntry<WifeData> | null;
   initialNetflixEntries: CmsEntry<NetflixTitleData>[];
+  /** Published payload of the CMS **Desktop Layout** module (singleton `layout`
+   *  entry) — the primary source of icon positions. `null` before the module has
+   *  ever been saved. */
+  initialLayoutData: DesktopLayoutData | null;
 }
 
 export default function HomeClient({
@@ -120,6 +136,7 @@ export default function HomeClient({
   initialAboutEntry,
   initialWifeEntry,
   initialNetflixEntries,
+  initialLayoutData,
 }: HomeClientProps) {
   const { theme, toggle, wallpaper } = useTheme();
   const [windows, setWindows] = useState<WindowState[]>([]);
@@ -137,6 +154,10 @@ export default function HomeClient({
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [portfolioEntries, setPortfolioEntries] = useState(initialPortfolioEntries);
+  const [layoutData, setLayoutData] = useState<DesktopLayoutData | null>(initialLayoutData);
+  // CMS Desktop Layout rows — precedence 1 in `buildDesktopLayout`. Validated
+  // (clamped, unknown rows dropped) so a bad payload can never break the desktop.
+  const layoutOverlay = useMemo(() => normalizeLayoutOverlay(layoutData), [layoutData]);
   const aboutData = useMemo<AboutData>(() => ({
     ...fallbackAboutData,
     ...initialAboutEntry?.data,
@@ -162,13 +183,19 @@ export default function HomeClient({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/content?type=portfolio")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { entries?: CmsEntry<PortfolioEntryData>[] } | null) => {
-        if (cancelled || !payload?.entries?.length) return;
-        setPortfolioEntries(payload.entries);
-      })
-      .catch(() => {});
+    // Re-read the two modules the desktop is built from, so a CMS save shows up
+    // on the next visit without waiting for the server cache to expire.
+    const load = async () => {
+      const [portfolio, layout] = await Promise.all([
+        fetchEntries<CmsEntry<PortfolioEntryData>>("/api/content?type=portfolio"),
+        fetchEntries<CmsEntry<DesktopLayoutData>>("/api/content?type=layout"),
+      ]);
+      if (cancelled) return;
+      if (portfolio?.entries?.length) setPortfolioEntries(portfolio.entries);
+      const layoutEntry = layout?.entries?.[0];
+      if (layoutEntry?.data) setLayoutData(layoutEntry.data);
+    };
+    void load();
 
     return () => {
       cancelled = true;
@@ -212,78 +239,35 @@ export default function HomeClient({
     };
   }, []);
 
+  // Item ids/labels/media metadata come from `desktop-items.ts` so the CMS
+  // Desktop Layout editor and this render path can never disagree.
   const cmsDesktopItems = useMemo(
-    () =>
-      portfolioEntries.map((entry) => {
-        const desktop = entry.data.desktop;
-        return {
-          id: `cms-desktop-${entry.id}`,
-          label: desktop?.label || entry.title,
-          finderLabel: entry.data.title || entry.title,
-          finderIcon: entry.data.finderIcon ? browserImageUrl(entry.data.finderIcon) : undefined,
-          image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
-          // CMS placement is an *override* for desktop-layout.ts; a new entry
-          // without coordinates falls through to the module's generated slot.
-          x: Number.isFinite(desktop?.x) ? desktop!.x : undefined,
-          y: Number.isFinite(desktop?.y) ? desktop!.y : undefined,
-          width: Number.isFinite(desktop?.width) ? desktop!.width : undefined,
-          mobileX: Number.isFinite(desktop?.mobile?.x) ? desktop!.mobile!.x : undefined,
-          mobileY: Number.isFinite(desktop?.mobile?.y) ? desktop!.mobile!.y : undefined,
-          imageAspect: mediaAspect(desktop?.media) ?? mediaAspect(entry.data.bannerMedia),
-          appId: `cms-portfolio:${entry.id}`,
-        };
-      }),
+    () => portfolioEntries.map(portfolioDesktopItem),
     [portfolioEntries]
   );
 
   const profileDesktopItems = useMemo<DesktopItem[]>(
-    () => [
-      ...(aboutData.desktop.image
-        ? [{
-            id: "about",
-            label: aboutData.desktop.label || aboutData.title,
-            finderLabel: aboutData.title,
-            finderIcon: aboutData.finderIcon ? browserImageUrl(aboutData.finderIcon) : undefined,
-            image: browserImageUrl(aboutData.desktop.image),
-            x: aboutData.desktop.x,
-            y: aboutData.desktop.y,
-            width: aboutData.desktop.width,
-            mobileX: Number.isFinite(aboutData.desktop.mobile?.x) ? aboutData.desktop.mobile!.x : undefined,
-            mobileY: Number.isFinite(aboutData.desktop.mobile?.y) ? aboutData.desktop.mobile!.y : undefined,
-            imageAspect: mediaAspect(aboutData.desktop.media) ?? mediaAspect(aboutData.photoMedia),
-            appId: "about",
-          }]
-        : []),
-      {
-        id: "wife",
-        label: wifeData.desktop.label || wifeData.name,
-        finderLabel: wifeData.name,
-        finderIcon: wifeData.finderIcon ? browserImageUrl(wifeData.finderIcon) : undefined,
-        image: browserImageUrl(wifeData.desktop.image || wifeData.photo),
-        x: wifeData.desktop.x,
-        y: wifeData.desktop.y,
-        width: wifeData.desktop.width,
-        mobileX: Number.isFinite(wifeData.desktop.mobile?.x) ? wifeData.desktop.mobile!.x : undefined,
-        mobileY: Number.isFinite(wifeData.desktop.mobile?.y) ? wifeData.desktop.mobile!.y : undefined,
-        // The static fallback photo is 3:4; CMS uploads carry their own size.
-        imageAspect: mediaAspect(wifeData.desktop.media) ?? mediaAspect(wifeData.photoMedia) ?? 4 / 3,
-        appId: "wife",
-      },
-    ].filter((item) => item.image),
+    () => [aboutDesktopItem(aboutData), wifeDesktopItem(wifeData)].filter((item) => Boolean(item.image)),
     [aboutData, wifeData]
   );
 
   const allDesktopItems = useMemo(
-    () => [...desktopItems, ...profileDesktopItems, ...cmsDesktopItems],
+    () => [...staticDesktopItems(), ...profileDesktopItems, ...cmsDesktopItems],
     [cmsDesktopItems, profileDesktopItems]
   );
 
-  // Every desktop item's position/width per breakpoint — curated config, CMS
-  // overrides, and an auto-generated slot for anything else. Rebuilt when the
-  // breakpoint or the viewport changes (generated slots are viewport-aware).
+  // Every desktop item's position/width per breakpoint — CMS Desktop Layout rows
+  // (edited in /admin), curated config fallback, and an auto-generated slot for
+  // anything else. Rebuilt when the breakpoint or the viewport changes
+  // (generated slots are viewport-aware).
   const desktopLayout = useMemo(
-    () => buildDesktopLayout(allDesktopItems, { activeBreakpoint: breakpoint, viewport }),
-    [allDesktopItems, breakpoint, viewport]
+    () =>
+      buildDesktopLayout(allDesktopItems, {
+        activeBreakpoint: breakpoint,
+        viewport,
+        overlay: layoutOverlay,
+      }),
+    [allDesktopItems, breakpoint, viewport, layoutOverlay]
   );
 
   const getAppConfig = useCallback(

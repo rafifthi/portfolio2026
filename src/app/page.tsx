@@ -1,6 +1,7 @@
 import HomeClient from "./HomeClient";
 import { connection } from "next/server";
 import type { AboutData, CmsEntry, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import type { DesktopLayoutData } from "@/lib/desktop-layout";
 import { listPublishedCmsEntries } from "@/lib/cms-cache";
 
 async function getPortfolioEntries(): Promise<CmsEntry<PortfolioEntryData>[]> {
@@ -46,17 +47,31 @@ async function getProfileEntry<TData>(type: "about" | "wife"): Promise<CmsEntry<
   }
 }
 
+/** Singleton CMS **Desktop Layout** module — the primary source of icon
+ *  positions. Without it the desktop falls back to the curated config and the
+ *  module's generated grid. */
+async function getLayoutEntry(): Promise<CmsEntry<DesktopLayoutData> | null> {
+  if (!process.env.DATABASE_URL) return null;
+
+  try {
+    return ((await listPublishedCmsEntries("layout")) as CmsEntry<DesktopLayoutData>[])[0] || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
   // DATABASE_URL and published CMS content must be resolved at request time.
   // Otherwise a build without runtime env can permanently prerender an empty desktop.
   await connection();
 
-  const [portfolioEntries, noteEntries, aboutEntry, wifeEntry, netflixEntries] = await Promise.all([
+  const [portfolioEntries, noteEntries, aboutEntry, wifeEntry, netflixEntries, layoutEntry] = await Promise.all([
     getPortfolioEntries(),
     getNoteEntries(),
     getProfileEntry<AboutData>("about"),
     getProfileEntry<WifeData>("wife"),
     getNetflixEntries(),
+    getLayoutEntry(),
   ]);
 
   return (
@@ -66,6 +81,7 @@ export default async function Home() {
       initialAboutEntry={aboutEntry}
       initialWifeEntry={wifeEntry}
       initialNetflixEntries={netflixEntries}
+      initialLayoutData={layoutEntry?.data ?? null}
     />
   );
 }
