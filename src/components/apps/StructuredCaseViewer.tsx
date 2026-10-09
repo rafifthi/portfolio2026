@@ -88,14 +88,17 @@ function PasscodeModal({
   const [typed, setTyped] = useState("");
   const [error, setError] = useState("");
 
-  // HomeClient closes the topmost window on Escape via a bubble-phase window
-  // listener — intercept in capture phase so Esc #1 only closes this modal.
+  // HomeClient closes the topmost window on Escape via a window-level listener.
+  // Intercept in the capture phase and mark the event as consumed so the global
+  // handler never sees it. Both listeners live on `window`, so stopPropagation
+  // alone is not a strong enough contract — stopImmediatePropagation plus
+  // preventDefault makes the "this modal owns Escape" handshake explicit.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);

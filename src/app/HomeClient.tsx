@@ -422,6 +422,9 @@ export default function HomeClient({
   // Escape to close topmost window
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // A modal/dialog (passcode gate, onboarding, ...) that owns Escape marks
+      // the event as consumed — never close a desktop window in that case.
+      if (e.defaultPrevented) return;
       if (e.key === "Escape") {
         setWindows((prev) => {
           if (prev.length === 0) return prev;
