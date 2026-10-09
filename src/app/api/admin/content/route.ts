@@ -3,6 +3,7 @@ import { CmsEntryType, isCmsEntryType, normalizeCmsEntryInput } from "@/lib/cms"
 import { createCmsEntry, listCmsEntries } from "@/lib/cms-db";
 import { isAdminSession } from "@/lib/admin-auth";
 import { invalidatePublishedCmsEntries } from "@/lib/cms-cache";
+import { syncDesktopLayoutRows } from "@/lib/desktop-layout-cms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid content payload." }, { status: 400 });
   }
 
+  if (input.type === "layout") {
+    return NextResponse.json(
+      {
+        error:
+          "Desktop Layout is a singleton managed by its own module — use /admin → Desktop Layout (PUT /api/admin/layout).",
+      },
+      { status: 400 }
+    );
+  }
+
   try {
     if (isSingletonType(input.type)) {
       const existingEntries = await listCmsEntries(input.type, true);
@@ -55,6 +66,21 @@ export async function POST(request: Request) {
     }
 
     const entry = await createCmsEntry(input);
+
+    // Auto-populate: a new portfolio entry gets a Desktop Layout row at every
+    // breakpoint, with no manual step. A failure here must not fail the content
+    // write — the rows are generated again next time the editor opens.
+    if (input.type === "portfolio") {
+      try {
+        await syncDesktopLayoutRows();
+      } catch (error) {
+        console.warn(
+          "[desktop-layout] auto-populate failed:",
+          error instanceof Error ? error.message : error
+        );
+      }
+    }
+
     invalidatePublishedCmsEntries();
     return NextResponse.json({ entry }, { status: 201 });
   } catch (error) {

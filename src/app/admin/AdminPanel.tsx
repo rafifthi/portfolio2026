@@ -23,6 +23,7 @@ import {
 import { NotionBlock } from "@/lib/types";
 import { Icon } from "@/components/Icon";
 import { BlockEditor, EditorBlock, fromEditorBlocks, toEditorBlocks } from "./BlockEditor";
+import DesktopLayoutPanel from "./DesktopLayoutPanel";
 
 type FormData = GalleryImageData | NoteData | PortfolioEntryData | AboutData | WifeData | NetflixTitleData;
 type FormState = CmsEntryInput<FormData>;
@@ -47,6 +48,7 @@ const tabs: { type: CmsEntryType; label: string; icon: string }[] = [
   { type: "about", label: "About Rafif", icon: "UserRound" },
   { type: "wife", label: "Wife", icon: "Heart" },
   { type: "netflix", label: "Netflix", icon: "Play" },
+  { type: "layout", label: "Desktop Layout", icon: "LayoutGrid" },
 ];
 
 const singletonTypes = new Set<CmsEntryType>(["about", "wife"]);
@@ -406,6 +408,13 @@ export default function AdminPanel() {
     setForm(emptyData(type));
     setEditorOpen(isSingletonType(type));
     if (type === "notes") setNotesFolder(null);
+
+    // Desktop Layout is a module of its own: it has a dedicated editor and API
+    // (the generic CMS form above would edit the wrong payload).
+    if (type === "layout") {
+      setEditorOpen(false);
+      return;
+    }
 
     if (!isSingletonType(type)) return;
 
@@ -1048,9 +1057,11 @@ export default function AdminPanel() {
                 >
                   <Icon name={tab.icon} size={16} />
                   {tab.label}
-                  <span className="ml-auto text-xs text-white/35">
-                    {entries.filter((entry) => entry.type === tab.type).length}
-                  </span>
+                  {tab.type !== "layout" && (
+                    <span className="ml-auto text-xs text-white/35">
+                      {entries.filter((entry) => entry.type === tab.type).length}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1066,7 +1077,9 @@ export default function AdminPanel() {
           </aside>
 
           <main className="min-h-0 overflow-auto p-5">
-            {activeType === "gallery" ? (
+            {activeType === "layout" ? (
+              <DesktopLayoutPanel onSaved={showSuccessToast} onError={setMessage} />
+            ) : activeType === "gallery" ? (
               <GalleryManager
                 entries={filteredEntries}
                 busy={busy}

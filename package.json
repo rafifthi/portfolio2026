@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "verify:layout": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-desktop-layout.mjs",
+    "verify:cms-layout": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-cms-layout.mjs",
     "db:migrate": "node scripts/migrate-cms-schema.mjs",
     "migrate:cms": "node scripts/migrate-content-to-cms.mjs"
   },

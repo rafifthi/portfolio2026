@@ -13,11 +13,31 @@ interface DesktopIconProps {
   onOpen: () => void;
   disableDrag?: boolean;
   compact?: boolean;
+  /** Compact (mobile) image height in px — comes from desktop-layout.ts so a
+   *  crowded breakpoint can shrink the icons instead of overlapping. Defaults
+   *  to the standard 96px. */
+  imageHeight?: number;
+  /** Desktop image max-height in px, also from desktop-layout.ts. Keeps a
+   *  taller-than-assumed upload from growing its box into a neighbour. */
+  imageMaxHeight?: number;
 }
 
 const DESKTOP_ICON_RADIUS = 14;
+const DEFAULT_COMPACT_IMAGE_HEIGHT = 96;
 
-export default function DesktopIcon({ id, label, image, x, y, width, onOpen, disableDrag = false, compact = false }: DesktopIconProps) {
+export default function DesktopIcon({
+  id,
+  label,
+  image,
+  x,
+  y,
+  width,
+  onOpen,
+  disableDrag = false,
+  compact = false,
+  imageHeight,
+  imageMaxHeight,
+}: DesktopIconProps) {
   const [hovered, setHovered] = useState(false);
   const dragControls = useDragControls();
   const dragged = useRef(false);
@@ -103,12 +123,18 @@ export default function DesktopIcon({ id, label, image, x, y, width, onOpen, dis
           <img
             src={image}
             alt={label}
-            className={
-              compact
-                ? "h-24 w-auto max-w-[120px] object-contain"
-                : "w-full h-auto object-contain"
-            }
-            style={{ borderRadius: DESKTOP_ICON_RADIUS }}
+            className={compact ? "w-auto object-contain" : "w-full h-auto object-contain"}
+            style={{
+              borderRadius: DESKTOP_ICON_RADIUS,
+              // Compact icons are normalized to a shared height (set by the
+              // layout module) and capped at the tile width so nothing crops.
+              ...(compact
+                ? { height: imageHeight ?? DEFAULT_COMPACT_IMAGE_HEIGHT, maxWidth: "100%" }
+                : {}),
+              // Desktop icons keep their aspect ratio but never grow past the
+              // box the layout module reserved for them.
+              ...(imageMaxHeight ? { maxHeight: imageMaxHeight } : {}),
+            }}
             loading="eager"
             fetchPriority="high"
             draggable={false}
