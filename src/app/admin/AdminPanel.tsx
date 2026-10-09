@@ -16,6 +16,7 @@ import {
   WifeData,
   browserImageUrl,
   croppedCloudinaryUrl,
+  DEFAULT_PORTFOLIO_PASSCODE,
   slugify,
   uncroppedCloudinaryUrl,
 } from "@/lib/cms";
@@ -82,6 +83,8 @@ function emptyData(type: CmsEntryType): FormState {
         title: "",
         banner: "",
         projectUrl: "",
+        passcodeToAccess: false,
+        passcode: "",
         meta: [
           { label: "Role", value: "" },
           { label: "Status", value: "" },
@@ -2941,6 +2944,49 @@ function PortfolioForm({
               Optional. Paste the live app or Figma prototype URL, including https://.
             </span>
           </label>
+          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2.5 transition hover:bg-white/[0.055]">
+            <input
+              type="checkbox"
+              checked={Boolean(data.passcodeToAccess)}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setData((current) => ({
+                  ...current,
+                  passcodeToAccess: checked,
+                  passcode:
+                    checked && !current.passcode?.trim()
+                      ? DEFAULT_PORTFOLIO_PASSCODE
+                      : current.passcode,
+                }));
+              }}
+              className="h-4 w-4 shrink-0 accent-sky-500"
+            />
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-white">
+                <Icon name="Lock" size={14} className="text-sky-300" />
+                Passcode to access
+              </span>
+              <span className="mt-0.5 block text-xs text-white/40">
+                Visitors must enter the passcode before the Project Link opens.
+              </span>
+            </span>
+          </label>
+          {data.passcodeToAccess && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-white/50">Passcode</span>
+              <input
+                value={data.passcode || ""}
+                onChange={(event) =>
+                  setData((current) => ({ ...current, passcode: event.target.value }))
+                }
+                placeholder={DEFAULT_PORTFOLIO_PASSCODE}
+                className={inputClass()}
+              />
+              <span className="mt-1 block text-xs text-white/35">
+                Defaults to {DEFAULT_PORTFOLIO_PASSCODE}. Visitors must type this exactly.
+              </span>
+            </label>
+          )}
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">

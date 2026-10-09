@@ -74,6 +74,11 @@ export interface PortfolioEntryData {
   title: string;
   banner: string;
   projectUrl?: string;
+  /** When true, the public "Project Link" button is gated behind `passcode`. */
+  passcodeToAccess?: boolean;
+  /** Passcode required before the project link opens. The CMS prefills it with
+   *  `DEFAULT_PORTFOLIO_PASSCODE`. */
+  passcode?: string;
   bannerMedia?: CmsImageMetadata;
   finderIcon?: string;
   finderIconMedia?: CmsImageMetadata;
@@ -81,6 +86,9 @@ export interface PortfolioEntryData {
   blocks: NotionBlock[];
   desktop: PortfolioDesktopData;
 }
+
+/** Passcode prefilled in the CMS when "Passcode to access" is switched on. */
+export const DEFAULT_PORTFOLIO_PASSCODE = "FIPTHECOIN";
 
 export interface AboutData {
   title: string;

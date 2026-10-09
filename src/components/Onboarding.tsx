@@ -181,16 +181,20 @@ export default function Onboarding() {
     return () => clearTimeout(id);
   }, [isOpen, step]);
 
-  // Escape key handler
+  // Escape key handler. The tour owns Escape while it is open: intercept in the
+  // capture phase and mark the event as consumed so the global HomeClient
+  // handler (same `window` target, bubble phase) does not additionally close a
+  // desktop window. See PasscodeModal for the same handshake.
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        finishTour();
-      }
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      finishTour();
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [isOpen]);
 
   // Global restart function for Help button

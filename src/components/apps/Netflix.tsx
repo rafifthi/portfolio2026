@@ -332,14 +332,15 @@ function DetailModal({
   onClose: () => void;
   onPlay: () => void;
 }) {
-  // HomeClient closes the topmost window on Escape via a bubble-phase window
-  // listener — intercept in capture phase so Esc #1 only closes this modal.
+  // HomeClient closes the topmost window on Escape via a window-level listener.
+  // Intercept in the capture phase and mark the event as consumed so the global
+  // handler never sees it (see PasscodeModal for the same handshake).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onClose();
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);

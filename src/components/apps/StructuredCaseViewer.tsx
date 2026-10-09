@@ -1,7 +1,9 @@
 "use client";
 
+import { CSSProperties, FormEvent, useEffect, useSyncExternalStore, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@/components/Icon";
-import { CmsEntry, PortfolioEntryData } from "@/lib/cms";
+import { CmsEntry, DEFAULT_PORTFOLIO_PASSCODE, PortfolioEntryData } from "@/lib/cms";
 import { renderInline } from "@/lib/inline-markdown";
 import { NotionBlock } from "@/lib/types";
 
@@ -18,7 +20,9 @@ function MetaBadge({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getProjectLink(value?: string) {
+type ProjectLink = { href: string; isFigma: boolean };
+
+function getProjectLink(value?: string): ProjectLink | null {
   const raw = value?.trim();
   if (!raw) return null;
 
@@ -28,28 +32,264 @@ function getProjectLink(value?: string) {
 
     const hostname = url.hostname.replace(/^www\./, "");
     const isFigma = hostname === "figma.com" || hostname.endsWith(".figma.com");
-    let displayUrl = `${hostname}${url.pathname === "/" ? "" : url.pathname}`;
 
-    if (isFigma) {
-      const parts = url.pathname.split("/").filter(Boolean);
-      const section = parts[0] || "design";
-      const rawName = parts.at(-1) || "prototype";
-      const readableName = decodeURIComponent(rawName).replace(/[-_]+/g, " ");
-      const shortName = readableName.length > 28
-        ? `${readableName.slice(0, 27)}…`
-        : readableName;
-      displayUrl = `${hostname}/${section}/…/${shortName}`;
-    }
-
-    return {
-      href: url.toString(),
-      displayUrl,
-      label: isFigma ? "Open Figma prototype" : "Visit live project",
-      isFigma,
-    };
+    return { href: url.toString(), isFigma };
   } catch {
     return null;
   }
+}
+
+const PASSCODE_STORAGE_PREFIX = "portfolio-project-passcode:";
+
+/** Static label shown for the project link (the raw URL stays in `href`). */
+const PROJECT_LINK_LABEL = "Project Link";
+
+/** Shared trigger/link styling so the gated button looks identical to the live link. */
+const PROJECT_LINK_CLASS =
+  "flex w-full min-w-0 items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 lg:w-auto lg:max-w-80 lg:shrink-0";
+
+const PROJECT_LINK_STYLE: CSSProperties = {
+  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+  borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
+  outlineColor: "var(--accent)",
+};
+
+function subscribePasscodeUnlock(onChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
+function readStoredUnlock(storageKey: string) {
+  try {
+    return window.sessionStorage.getItem(storageKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredUnlock(storageKey: string) {
+  try {
+    window.sessionStorage.setItem(storageKey, "1");
+  } catch {
+    // Persistence is a nicety; the link stays unlocked for this mount either way.
+  }
+}
+
+function PasscodeModal({
+  passcode,
+  onClose,
+  onUnlock,
+}: {
+  passcode: string;
+  onClose: () => void;
+  onUnlock: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState("");
+
+  // HomeClient closes the topmost window on Escape via a window-level listener.
+  // Intercept in the capture phase and mark the event as consumed so the global
+  // handler never sees it. Both listeners live on `window`, so stopPropagation
+  // alone is not a strong enough contract — stopImmediatePropagation plus
+  // preventDefault makes the "this modal owns Escape" handshake explicit.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [onClose]);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (typed === passcode) {
+      onUnlock();
+      return;
+    }
+    setError("Incorrect passcode. Try again.");
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="project-link-passcode-title"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-xl border p-5 shadow-2xl"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border-subtle)" }}
+      >
+        <div className="flex items-start gap-3">
+          <Icon name="Lock" size={18} className="mt-0.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
+          <div className="min-w-0 flex-1">
+            <h2 id="project-link-passcode-title" className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+              {PROJECT_LINK_LABEL}
+            </h2>
+            <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
+              This project link is passcode protected.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close passcode dialog"
+            className="-mr-1 -mt-1 flex-shrink-0 rounded-md p-1.5 transition-colors hover:brightness-125 focus-visible:outline-2"
+            style={{ color: "var(--text-tertiary)", outlineColor: "var(--accent)" }}
+          >
+            <Icon name="X" size={17} />
+          </button>
+        </div>
+
+        <input
+          type="password"
+          value={typed}
+          autoFocus
+          onChange={(event) => {
+            setTyped(event.target.value);
+            if (error) setError("");
+          }}
+          placeholder="Enter passcode"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label="Project link passcode"
+          className="mt-4 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:outline-2"
+          style={{
+            background: "var(--bg-input)",
+            borderColor: "var(--border-subtle)",
+            color: "var(--text-primary)",
+            outlineColor: "var(--accent)",
+          }}
+        />
+
+        {error ? (
+          <p role="alert" className="mt-2 text-xs" style={{ color: "#fda4af" }}>
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:brightness-110"
+            style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-md border px-4 py-2 text-sm font-semibold transition-colors hover:brightness-110"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 18%, transparent)",
+              borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
+              color: "var(--accent)",
+            }}
+          >
+            Unlock
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ProjectLinkButton({
+  link,
+  entryId,
+  passcode,
+  gated,
+}: {
+  link: ProjectLink;
+  entryId: string;
+  passcode?: string;
+  gated: boolean;
+}) {
+  const requiredPasscode = passcode && passcode.length > 0 ? passcode : DEFAULT_PORTFOLIO_PASSCODE;
+  const storageKey = `${PASSCODE_STORAGE_PREFIX}${entryId}`;
+  const [unlockedByUser, setUnlockedByUser] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const unlockedInSession = useSyncExternalStore(
+    subscribePasscodeUnlock,
+    () => readStoredUnlock(storageKey),
+    () => false
+  );
+  const unlocked = !gated || unlockedByUser || unlockedInSession;
+
+  function handleUnlock() {
+    setUnlockedByUser(true);
+    writeStoredUnlock(storageKey);
+    setModalOpen(false);
+    // Same user gesture as the submit, so popup blockers allow it.
+    window.open(link.href, "_blank", "noopener");
+  }
+
+  if (gated && !unlocked) {
+    return (
+      <>
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            setModalOpen(true);
+          }}
+          title="Passcode protected"
+          aria-haspopup="dialog"
+          aria-expanded={modalOpen}
+          aria-label={`${PROJECT_LINK_LABEL} (passcode protected)`}
+          className={PROJECT_LINK_CLASS}
+          style={PROJECT_LINK_STYLE}
+        >
+          <Icon name={link.isFigma ? "PenTool" : "ExternalLink"} size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+          <span className="min-w-0 truncate text-sm font-medium" style={{ color: "var(--accent)" }}>
+            {PROJECT_LINK_LABEL}
+          </span>
+          <Icon name="ArrowUpRight" size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+        </button>
+        {modalOpen && typeof document !== "undefined"
+          ? createPortal(
+              <PasscodeModal
+                passcode={requiredPasscode}
+                onClose={() => setModalOpen(false)}
+                onUnlock={handleUnlock}
+              />,
+              document.body
+            )
+          : null}
+      </>
+    );
+  }
+
+  return (
+    <a
+      href={link.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      title={link.href}
+      aria-label={`${PROJECT_LINK_LABEL}: ${link.href}`}
+      className={PROJECT_LINK_CLASS}
+      style={PROJECT_LINK_STYLE}
+    >
+      <Icon name={link.isFigma ? "PenTool" : "ExternalLink"} size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+      <span className="min-w-0 truncate text-sm font-medium" style={{ color: "var(--accent)" }}>
+        {PROJECT_LINK_LABEL}
+      </span>
+      <Icon name="ArrowUpRight" size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
+    </a>
+  );
 }
 
 function Block({ block }: { block: NotionBlock }) {
@@ -195,27 +435,12 @@ export default function StructuredCaseViewer({ entry }: { entry: CmsEntry<Portfo
           </div>
 
           {projectLink && (
-            <a
-              href={projectLink.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => event.stopPropagation()}
-              title={projectLink.href}
-              aria-label={`${projectLink.label}: ${projectLink.href}`}
-              className="flex w-full min-w-0 items-center gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 lg:w-auto lg:max-w-80 lg:shrink-0"
-              style={{
-                background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-                borderColor: "color-mix(in srgb, var(--accent) 42%, var(--border-subtle))",
-                outlineColor: "var(--accent)",
-              }}
-            >
-              <Icon name={projectLink.isFigma ? "PenTool" : "ExternalLink"} size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
-              <span className="min-w-0 truncate text-sm font-medium" style={{ color: "var(--accent)" }}>
-                {projectLink.displayUrl}
-              </span>
-              <Icon name="ArrowUpRight" size={15} className="flex-shrink-0" style={{ color: "var(--accent)" }} />
-            </a>
+            <ProjectLinkButton
+              link={projectLink}
+              entryId={entry.id}
+              passcode={data.passcode}
+              gated={Boolean(data.passcodeToAccess)}
+            />
           )}
         </div>
 
