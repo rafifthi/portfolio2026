@@ -28,7 +28,18 @@ import StructuredCaseViewer from "@/components/apps/StructuredCaseViewer";
 import { Icon } from "@/components/Icon";
 import { desktopItems } from "@/lib/data";
 import { DesktopItem, WindowState } from "@/lib/types";
-import { AboutData, browserImageUrl, CmsEntry, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
+import {
+  buildDesktopLayout,
+  DESKTOP_DEFAULT_ICON_WIDTH,
+  estimateImageHeight,
+  layoutBreakpointQueries,
+  MOBILE_ICON_WIDTH,
+  resolveDesktopItemLayout,
+  resolveLayoutBreakpoint,
+  type LayoutBreakpoint,
+  type LayoutViewport,
+} from "@/lib/desktop-layout";
+import { AboutData, browserImageUrl, CmsEntry, CmsImageMetadata, NetflixTitleData, NoteData, PortfolioEntryData, WifeData } from "@/lib/cms";
 import { buildNetflixLists, NetflixTitle } from "@/lib/netflix-data";
 import { fallbackAboutData, fallbackWifeData } from "@/lib/profile-content";
 
@@ -77,6 +88,12 @@ const APP_CONFIGS: Record<string, AppConfig> = {
   about: { title: "About Rafif", icon: "User", color: "#3b82f6", width: 560, height: 600, component: AboutRafif },
 };
 
+/** Image aspect (height ÷ width) from CMS media metadata, when available. */
+function mediaAspect(media?: CmsImageMetadata) {
+  if (!media || !media.width || !media.height) return undefined;
+  return media.height / media.width;
+}
+
 const DOCK_ITEMS = [
   { id: "finder", name: "Finder", icon: "FolderOpen", color: "#60a5fa" },
   { id: "mail", name: "Mail", icon: "Mail", color: "#3b82f6" },
@@ -88,31 +105,6 @@ const DOCK_ITEMS = [
   { id: "separator", name: "", icon: "", color: "", isSeparator: true },
   { id: "apps", name: "Spotlight", icon: "Search", color: "#6b7280" },
 ];
-
-// Scattered but evenly spread across the whole screen (percentages of the
-// desktop area). Ordered so the first few items already cover top → bottom
-// instead of clustering in one corner. Icons are ~120px wide / 116px tall, so
-// x stays within ~[6, 52] to keep them on-screen and y within ~[10, 70].
-const MOBILE_ICON_POSITIONS = [
-  { x: 9, y: 12 },
-  { x: 50, y: 36 },
-  { x: 16, y: 62 },
-  { x: 52, y: 11 },
-  { x: 7, y: 38 },
-  { x: 46, y: 64 },
-  { x: 30, y: 25 },
-];
-
-function getMobileIconPosition(index: number) {
-  if (MOBILE_ICON_POSITIONS[index]) return MOBILE_ICON_POSITIONS[index];
-
-  // Overflow past the curated set: alternate columns, stepping down the screen.
-  const overflowIndex = index - MOBILE_ICON_POSITIONS.length;
-  return {
-    x: overflowIndex % 2 === 0 ? 30 : 8,
-    y: 44 + Math.floor(overflowIndex / 2) * 18,
-  };
-}
 
 interface HomeClientProps {
   initialPortfolioEntries: CmsEntry<PortfolioEntryData>[];
@@ -132,8 +124,15 @@ export default function HomeClient({
   const { theme, toggle, wallpaper } = useTheme();
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [nextZIndex, setNextZIndex] = useState(100);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
+  // Layout breakpoint driving desktop icon placement (see desktop-layout.ts).
+  // "xl" on the server and the first client render keeps SSR deterministic; the
+  // effect below resolves the real breakpoint from matchMedia after hydration.
+  const [breakpoint, setBreakpoint] = useState<LayoutBreakpoint>("xl");
+  const [viewport, setViewport] = useState<LayoutViewport>({ width: 0, height: 0 });
+  // Two-mode flags the window/sheet/dock code already speaks, derived from the
+  // breakpoint: base = phones (<640), sm/md = tablets (640–1023).
+  const isMobile = breakpoint === "base";
+  const isTablet = breakpoint === "sm" || breakpoint === "md";
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
@@ -184,15 +183,19 @@ export default function HomeClient({
   }, []);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia("(max-width: 639px)");
-    const tabletMq = window.matchMedia("(min-width: 640px) and (max-width: 1023px)");
-    const syncViewportMode = () => {
-      setIsMobile(mobileMq.matches);
-      setIsTablet(tabletMq.matches);
+    // Desktop icon placement is resolved per breakpoint, against the live
+    // viewport. matchMedia drives the breakpoint switches; the resize listener
+    // refreshes the viewport for changes that stay inside one breakpoint.
+    const mediaQueries = layoutBreakpointQueries().map(({ query }) => window.matchMedia(query));
+    const syncLayout = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      setBreakpoint(resolveLayoutBreakpoint(width));
+      setViewport((current) => (current.width === width && current.height === height ? current : { width, height }));
     };
-    syncViewportMode();
-    mobileMq.addEventListener("change", syncViewportMode);
-    tabletMq.addEventListener("change", syncViewportMode);
+    syncLayout();
+    mediaQueries.forEach((list) => list.addEventListener("change", syncLayout));
+    window.addEventListener("resize", syncLayout);
 
     const updateTime = () => {
       const now = new Date();
@@ -203,15 +206,15 @@ export default function HomeClient({
     const interval = setInterval(updateTime, 1000);
 
     return () => {
-      mobileMq.removeEventListener("change", syncViewportMode);
-      tabletMq.removeEventListener("change", syncViewportMode);
+      mediaQueries.forEach((list) => list.removeEventListener("change", syncLayout));
+      window.removeEventListener("resize", syncLayout);
       clearInterval(interval);
     };
   }, []);
 
   const cmsDesktopItems = useMemo(
     () =>
-      portfolioEntries.map((entry, index) => {
+      portfolioEntries.map((entry) => {
         const desktop = entry.data.desktop;
         return {
           id: `cms-desktop-${entry.id}`,
@@ -219,11 +222,14 @@ export default function HomeClient({
           finderLabel: entry.data.title || entry.title,
           finderIcon: entry.data.finderIcon ? browserImageUrl(entry.data.finderIcon) : undefined,
           image: browserImageUrl(desktop?.image || entry.data.banner || "/placeholders/portfolio-thumb.svg"),
-          x: Number.isFinite(desktop?.x) ? desktop.x : 10 + index * 8,
-          y: Number.isFinite(desktop?.y) ? desktop.y : 28 + index * 6,
-          width: Number.isFinite(desktop?.width) ? desktop.width : 170,
+          // CMS placement is an *override* for desktop-layout.ts; a new entry
+          // without coordinates falls through to the module's generated slot.
+          x: Number.isFinite(desktop?.x) ? desktop!.x : undefined,
+          y: Number.isFinite(desktop?.y) ? desktop!.y : undefined,
+          width: Number.isFinite(desktop?.width) ? desktop!.width : undefined,
           mobileX: Number.isFinite(desktop?.mobile?.x) ? desktop!.mobile!.x : undefined,
           mobileY: Number.isFinite(desktop?.mobile?.y) ? desktop!.mobile!.y : undefined,
+          imageAspect: mediaAspect(desktop?.media) ?? mediaAspect(entry.data.bannerMedia),
           appId: `cms-portfolio:${entry.id}`,
         };
       }),
@@ -244,6 +250,7 @@ export default function HomeClient({
             width: aboutData.desktop.width,
             mobileX: Number.isFinite(aboutData.desktop.mobile?.x) ? aboutData.desktop.mobile!.x : undefined,
             mobileY: Number.isFinite(aboutData.desktop.mobile?.y) ? aboutData.desktop.mobile!.y : undefined,
+            imageAspect: mediaAspect(aboutData.desktop.media) ?? mediaAspect(aboutData.photoMedia),
             appId: "about",
           }]
         : []),
@@ -258,6 +265,8 @@ export default function HomeClient({
         width: wifeData.desktop.width,
         mobileX: Number.isFinite(wifeData.desktop.mobile?.x) ? wifeData.desktop.mobile!.x : undefined,
         mobileY: Number.isFinite(wifeData.desktop.mobile?.y) ? wifeData.desktop.mobile!.y : undefined,
+        // The static fallback photo is 3:4; CMS uploads carry their own size.
+        imageAspect: mediaAspect(wifeData.desktop.media) ?? mediaAspect(wifeData.photoMedia) ?? 4 / 3,
         appId: "wife",
       },
     ].filter((item) => item.image),
@@ -267,6 +276,14 @@ export default function HomeClient({
   const allDesktopItems = useMemo(
     () => [...desktopItems, ...profileDesktopItems, ...cmsDesktopItems],
     [cmsDesktopItems, profileDesktopItems]
+  );
+
+  // Every desktop item's position/width per breakpoint — curated config, CMS
+  // overrides, and an auto-generated slot for anything else. Rebuilt when the
+  // breakpoint or the viewport changes (generated slots are viewport-aware).
+  const desktopLayout = useMemo(
+    () => buildDesktopLayout(allDesktopItems, { activeBreakpoint: breakpoint, viewport }),
+    [allDesktopItems, breakpoint, viewport]
   );
 
   const getAppConfig = useCallback(
@@ -629,22 +646,26 @@ export default function HomeClient({
         id="tour-desktop-area"
         className={`absolute inset-0 px-4 ${isMobile ? "pt-16 pb-28" : "pt-8 pb-20"}`}
       >
-        {allDesktopItems.map((item, i) => {
-          // Prefer a CMS-configured mobile position; otherwise fall back to the
-          // auto-scatter layout so new entries are always placed sensibly.
-          const mobilePosition =
-            Number.isFinite(item.mobileX) && Number.isFinite(item.mobileY)
-              ? { x: item.mobileX as number, y: item.mobileY as number }
-              : getMobileIconPosition(i);
+        {allDesktopItems.map((item) => {
+          // Position comes from desktop-layout.ts (curated config → CMS
+          // override → generated slot). The item's own x/y is only a last-resort
+          // fallback, so old CMS values never regress the layout.
+          const fallback =
+            typeof item.x === "number" && typeof item.y === "number"
+              ? { x: item.x, y: item.y, width: item.width }
+              : undefined;
+          const position = resolveDesktopItemLayout(desktopLayout, item.id, breakpoint, fallback);
           return (
             <DesktopIcon
               key={item.id}
               id={item.id}
               label={item.label}
               image={item.image}
-              x={isMobile ? mobilePosition.x : item.x}
-              y={isMobile ? mobilePosition.y : item.y}
-              width={isMobile ? 120 : isTablet ? Math.round(item.width * 0.8) : item.width}
+              x={position.x}
+              y={position.y}
+              width={position.width ?? (isMobile ? MOBILE_ICON_WIDTH : DESKTOP_DEFAULT_ICON_WIDTH)}
+              imageHeight={position.imageHeight}
+              imageMaxHeight={isMobile ? undefined : estimateImageHeight(position, breakpoint)}
               onOpen={() => openApp(item.appId)}
               compact={isMobile}
             />

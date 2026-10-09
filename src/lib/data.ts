@@ -1,8 +1,12 @@
 import { DesktopItem, Note, Photo, MailMessage, StudyCase, Playlist } from "./types";
 
+/**
+ * Static desktop items. Positions come from `src/lib/desktop-layout.ts` (the
+ * single source of truth) — there is deliberately no `x`/`y` here anymore.
+ */
 export const desktopItems: DesktopItem[] = [
-  { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", x: 5, y: 12, width: 150, appId: "readme" },
-  { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", x: 62, y: 58, width: 160, appId: "cv" },
+  { id: "readme", label: "README.txt", image: "/icons/readme-md.svg", appId: "readme" },
+  { id: "cv", label: "CV.pdf", image: "/icons/cv-pdf.svg", appId: "cv" },
 ];
 
 export const notes: Note[] = [

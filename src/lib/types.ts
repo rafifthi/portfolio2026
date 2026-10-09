@@ -25,13 +25,19 @@ export interface DesktopItem {
   finderLabel?: string;
   finderIcon?: string;
   image: string;
-  x: number;
-  y: number;
-  width: number;
-  /** Optional mobile home-screen position (percent). Falls back to an
-   *  auto-scatter layout when not set. */
+  /** Desktop position (percent). Optional: `desktop-layout.ts` is the source
+   *  of truth, these are the CMS-authored overrides for that module. */
+  x?: number;
+  y?: number;
+  /** Icon box width in px. Also a `desktop-layout.ts` override. */
+  width?: number;
+  /** CMS-authored mobile home-screen position (percent), used as the `base`
+   *  breakpoint override. */
   mobileX?: number;
   mobileY?: number;
+  /** Icon image aspect ratio (height ÷ width) from CMS media metadata — lets
+   *  `desktop-layout.ts` reserve the right box height per item. */
+  imageAspect?: number;
   appId: string;
 }
 
